@@ -159,5 +159,135 @@ function save_mensaje($id_mensaje, $telefono_cliente, $timestamp, $cuerpo_mensaj
     if (!mysqli_query($con, $query_msg)) {
         error_log("Error al guardar mensaje en la bd: " . mysqli_error($con));
     }
+    
+    // 5. ENVIAR RESPUESTA AUTOMÁTICA Y CONTACTOS
+    if ($id_linea) {
+        $q_token = mysqli_query($con, "SELECT meta_app_id, meta_token, id_sede FROM lineas_whatsapp WHERE id = $id_linea");
+        if($q_token && mysqli_num_rows($q_token) > 0) {
+            $linea_info = mysqli_fetch_assoc($q_token);
+            enviar_respuesta_automatica($con, $linea_info, $telefono_cliente, $perfil, $id_conversacion);
+        }
+    }
+}
+
+/**
+ * Enviar respuesta automática indicando que este canal no es para atención directa
+ */
+function enviar_respuesta_automatica($con, $linea_info, $telefono_cliente, $perfil, $id_conversacion) {
+    
+    $telefonoID = $linea_info['meta_app_id'];
+    $token_seguro = $linea_info['meta_token'];
+    
+    if(empty($telefonoID) || empty($token_seguro)) {
+        return; // No se puede enviar sin token/id
+    }
+    
+    $enviado = 'Estimado/a ' . $perfil . ': Este canal no se encuentra habilitado para atención directa. Para recibir asistencia personalizada, le invitamos a contactar directamente a uno de nuestros asesores:';
+    
+    // URL para enviar mensaje
+    $url = 'https://graph.facebook.com/v23.0/' . $telefonoID . '/messages';
+    
+    // Configuración del mensaje
+    $mensaje_enviar = json_encode([
+        'messaging_product' => 'whatsapp',
+        'recipient_type' => 'individual',
+        'to' => $telefono_cliente,
+        'type' => 'text',
+        'text' => [
+            'preview_url' => false,
+            'body' => $enviado
+        ]
+    ]);
+    
+    // Declarar cabeceras
+    $header = [
+        "Authorization: Bearer " . $token_seguro,
+        "Content-Type: application/json"
+    ];
+    
+    // Iniciar CURL
+    $curl = curl_init();
+    curl_setopt($curl, CURLOPT_URL, $url);
+    curl_setopt($curl, CURLOPT_POSTFIELDS, $mensaje_enviar);
+    curl_setopt($curl, CURLOPT_HTTPHEADER, $header);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+    
+    // Obtener respuesta
+    $response = curl_exec($curl);
+    $status_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    curl_close($curl);
+    
+    // Guardar mensaje enviado en BD (Mismo formato de starfi_crm)
+    if ($status_code == 200) {
+        $enviado_esc = mysqli_real_escape_string($con, $enviado);
+        mysqli_query($con, "INSERT INTO mensajes_y_eventos (id_conversacion, tipo, origen, contenido) VALUES ($id_conversacion, 'TEXTO', 'BOT', '$enviado_esc')");
+        
+        $id_sede = $linea_info['id_sede'] ?? null;
+        enviar_contactos_asesores($telefonoID, $token_seguro, $telefono_cliente, $id_sede, $con, $id_conversacion);
+    } else {
+        error_log("Error al enviar respuesta automatica: " . $response);
+    }
+}
+
+/**
+ * Enviar contactos de asesores (fallback lista)
+ */
+function enviar_contactos_asesores($telefonoID, $token_seguro, $telefono_cliente, $id_sede, $con, $id_conversacion) {
+    
+    // Usar la lista por defecto del API_STARFI_WSAP
+    $asesores = [
+        ['nombre' => 'Ceny Landaeta', 'telefono' => '+584126127873'],
+        ['nombre' => 'Gabriel Benitez', 'telefono' => '+584242907452'],
+        ['nombre' => 'Junior Sosa', 'telefono' => '+584123695820'],
+        ['nombre' => 'Luis Albarran', 'telefono' => '+584242988805'],
+        ['nombre' => 'Yorman Cardozo', 'telefono' => '+584127029710'],
+        ['nombre' => 'Marcos Santo Domingo', 'telefono' => '+584122949976'],
+        ['nombre' => 'Miguel Strocchia', 'telefono' => '+584126862683']
+    ];
+    
+    $url = 'https://graph.facebook.com/v23.0/' . $telefonoID . '/messages';
+    
+    foreach ($asesores as $asesor) {
+        $mensaje_contacto = json_encode([
+            'messaging_product' => 'whatsapp',
+            'to' => $telefono_cliente,
+            'type' => 'contacts',
+            'contacts' => [
+                [
+                    'name' => [
+                        'formatted_name' => $asesor['nombre'] . ' SuperFormica',
+                        'first_name' => $asesor['nombre'],
+                        'last_name' => 'SuperFormica'
+                    ],
+                    'phones' => [
+                        [
+                            'phone' => $asesor['telefono'],
+                            'type' => 'CELL'
+                        ]
+                    ]
+                ]
+            ]
+        ]);
+        
+        $header = [
+            "Authorization: Bearer " . $token_seguro,
+            "Content-Type: application/json"
+        ];
+        
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $mensaje_contacto);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, $header);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_exec($curl);
+        curl_close($curl);
+        
+        // Registrar en CRM que se enviaron los contactos
+        $cont_str = mysqli_real_escape_string($con, "Contacto enviado: " . $asesor['nombre'] . " (" . $asesor['telefono'] . ")");
+        mysqli_query($con, "INSERT INTO mensajes_y_eventos (id_conversacion, tipo, origen, contenido) VALUES ($id_conversacion, 'TEXTO', 'BOT', '$cont_str')");
+        
+        // Pequeña pausa entre envíos
+        usleep(500000); // 0.5 segundos
+    }
 }
 ?>
