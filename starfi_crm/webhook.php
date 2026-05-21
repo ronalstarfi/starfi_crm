@@ -1,0 +1,163 @@
+<?php
+/*
+ * WEBHOOK MEJORADO PARA RECEPCIÓN DE MENSAJES WHATSAPP
+ * - Identifica el número receptor (telefono_meta)
+ * - Gestiona conversaciones automáticamente
+ * - Vincula con sistema de gestión avanzada
+ */
+
+/*
+ * VERIFICACION DEL WEBHOOK
+*/
+//TOKEN QUE QUEREMOS PONER 
+$token = 'PARALELEPIPEDO3312';
+//RETO QUE RECIBIREMOS DE FACEBOOK
+$palabraReto = $_GET['hub_challenge'] ?? '';
+//TOKEN DE VERIFICACION QUE RECIBIREMOS DE FACEBOOK
+$tokenVerificacion = $_GET['hub_verify_token'] ?? '';
+//SI EL TOKEN QUE GENERAMOS ES EL MISMO QUE NOS ENVIA FACEBOOK RETORNAMOS EL RETO PARA VALIDAR QUE SOMOS NOSOTROS
+if ($token === $tokenVerificacion) {
+    echo $palabraReto;
+    exit;
+}
+
+/*
+ * RECEPCION DE MENSAJES
+ */
+//LEEMOS LOS DATOS ENVIADOS POR WHATSAPP
+$respuesta = file_get_contents("php://input");
+
+// Log para debugging (opcional - descomentar si necesitas debug)
+file_put_contents("webhook_log.txt", date('Y-m-d H:i:s') . " - " . $respuesta . "\n", FILE_APPEND);
+
+//CONVERTIMOS EL JSON EN ARRAY DE PHP
+$respuesta = json_decode($respuesta, true);
+
+// Verificar que hay datos
+if (!$respuesta || !isset($respuesta['entry'][0]['changes'][0]['value'])) {
+    exit;
+}
+
+$value = $respuesta['entry'][0]['changes'][0]['value'];
+
+// Verificar que hay mensajes
+if (!isset($value['messages'][0])) {
+    exit;
+}
+
+//EXTRAEMOS EL MENSAJE DEL ARRAY
+$mensaje = $value['messages'][0]['text']['body'] ?? null;
+//EXTRAEMOS EL TELEFONO DEL CLIENTE
+$telefonoCliente = $value['messages'][0]['from'] ?? null;
+//EXTRAEMOS EL ID DE WHATSAPP DEL ARRAY
+$id = $value['messages'][0]['id'] ?? null;
+//EXTRAEMOS EL TIEMPO DE WHATSAPP DEL ARRAY
+$times = $value['messages'][0]['timestamp'] ?? time();
+//EXTRAEMOS EL NOMBRE DE LA PERSONA QUE TENGA REGISTRADO EN EL PERFIL 
+$perfil = $value['contacts'][0]['profile']['name'] ?? 'Usuario';
+
+// NUEVO: Extraer el número de teléfono que recibió el mensaje (telefono_meta)
+$telefonoReceptorID = $value['metadata']['phone_number_id'] ?? null;
+$displayPhoneNumber = $value['metadata']['display_phone_number'] ?? null;
+
+//SI HAY UN MENSAJE
+if($mensaje != null && $telefonoCliente != null){
+    save_mensaje($id, $telefonoCliente, $times, $mensaje, $perfil, $telefonoReceptorID, $displayPhoneNumber);
+}
+
+/**
+ * Guardar mensaje recibido y gestionar conversación
+ */
+function save_mensaje($id_mensaje, $telefono_cliente, $timestamp, $cuerpo_mensaje, $perfil, $telefono_receptor_id, $display_phone) {
+    
+    // Incluir conexión a la base de datos 
+    require_once('config/database.php');
+    $con = getDbConnection();
+    
+    if(!$con) {
+        error_log("Error de conexión a BD en webhook");
+        return;
+    }
+    
+    // Escapar datos para evitar SQL injection
+    $telefono_cliente = mysqli_real_escape_string($con, $telefono_cliente);
+    $cuerpo_mensaje = mysqli_real_escape_string($con, $cuerpo_mensaje);
+    $perfil = mysqli_real_escape_string($con, $perfil);
+    $telefono_receptor_id = mysqli_real_escape_string($con, $telefono_receptor_id);
+    
+    // 1. BUSCAR LA LINEA CORRESPONDIENTE AL NÚMERO RECEPTOR
+    $id_linea = null;
+    $id_empresa = 1; // Default
+    
+    if ($telefono_receptor_id) {
+        $query_api = "SELECT l.id, s.id_empresa FROM lineas_whatsapp l 
+                      LEFT JOIN sedes s ON l.id_sede = s.id 
+                      WHERE l.meta_app_id = '$telefono_receptor_id' AND l.estado_conexion = 'CONECTADO' LIMIT 1";
+        $result_api = mysqli_query($con, $query_api);
+        if ($result_api && mysqli_num_rows($result_api) > 0) {
+            $row = mysqli_fetch_assoc($result_api);
+            $id_linea = $row['id'];
+            if ($row['id_empresa']) $id_empresa = $row['id_empresa'];
+        }
+    }
+    
+    // Fallback a cualquier línea activa si no se encuentra
+    if (!$id_linea) {
+        $query_api = "SELECT l.id, s.id_empresa FROM lineas_whatsapp l 
+                      LEFT JOIN sedes s ON l.id_sede = s.id 
+                      WHERE l.estado_conexion = 'CONECTADO' LIMIT 1";
+        $result_api = mysqli_query($con, $query_api);
+        if ($result_api && mysqli_num_rows($result_api) > 0) {
+            $row = mysqli_fetch_assoc($result_api);
+            $id_linea = $row['id'];
+            if ($row['id_empresa']) $id_empresa = $row['id_empresa'];
+        } else {
+            $id_linea = 1; // Fallback definitivo
+        }
+    }
+    
+    // 2. BUSCAR O CREAR CLIENTE
+    $id_cliente = null;
+    $query_cliente = "SELECT id FROM clientes_contactos WHERE numero_whatsapp = '$telefono_cliente'";
+    $res_cliente = mysqli_query($con, $query_cliente);
+    if ($res_cliente && mysqli_num_rows($res_cliente) > 0) {
+        $id_cliente = mysqli_fetch_assoc($res_cliente)['id'];
+    } else {
+        $insert_cliente = "INSERT INTO clientes_contactos (id_empresa, numero_whatsapp, nombre) VALUES ($id_empresa, '$telefono_cliente', '$perfil')";
+        if (mysqli_query($con, $insert_cliente)) {
+            $id_cliente = mysqli_insert_id($con);
+        }
+    }
+    
+    if (!$id_cliente) {
+        error_log("No se pudo obtener ni crear el cliente en el webhook.");
+        return;
+    }
+    
+    // 3. BUSCAR O CREAR CONVERSACION
+    $id_conversacion = null;
+    $query_conv = "SELECT id FROM conversaciones WHERE id_cliente = $id_cliente AND estado NOT IN ('CERRADO', 'RESUELTO') LIMIT 1";
+    $res_conv = mysqli_query($con, $query_conv);
+    if ($res_conv && mysqli_num_rows($res_conv) > 0) {
+        $id_conversacion = mysqli_fetch_assoc($res_conv)['id'];
+        // Incrementar mensajes no leídos
+        mysqli_query($con, "UPDATE conversaciones SET mensajes_no_leidos = IFNULL(mensajes_no_leidos, 0) + 1 WHERE id = $id_conversacion");
+    } else {
+        $insert_conv = "INSERT INTO conversaciones (id_linea, id_cliente, estado, mensajes_no_leidos) VALUES ($id_linea, $id_cliente, 'ESPERA_ASIGNACION', 1)";
+        if (mysqli_query($con, $insert_conv)) {
+            $id_conversacion = mysqli_insert_id($con);
+        }
+    }
+    
+    if (!$id_conversacion) {
+        error_log("No se pudo obtener ni crear la conversación en el webhook.");
+        return;
+    }
+    
+    // 4. INSERTAR MENSAJE RECIBIDO
+    $query_msg = "INSERT INTO mensajes_y_eventos (id_conversacion, tipo, origen, contenido) VALUES ($id_conversacion, 'TEXTO', 'CLIENTE', '$cuerpo_mensaje')";
+    if (!mysqli_query($con, $query_msg)) {
+        error_log("Error al guardar mensaje en la bd: " . mysqli_error($con));
+    }
+}
+?>
