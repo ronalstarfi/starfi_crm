@@ -331,13 +331,34 @@ function renderMessages(messages, scrollToBottom) {
                 </div>
             `;
         } else if (msg.origen === 'BOT' || msg.origen === 'EVENTO_SISTEMA') {
-             msgHtml = `
-                <div class="system-event">
-                    <div class="event-pill">
-                        <i class="fa-solid fa-info-circle"></i> ${msg.contenido} (${timeLabel})
+            if(msg.tipo === 'CONTACTO') {
+                // Parse contact
+                let contactName = msg.contenido.substring(18, msg.contenido.indexOf('(')).trim();
+                let contactPhone = msg.contenido.substring(msg.contenido.indexOf('(')+1, msg.contenido.indexOf(')'));
+                
+                msgHtml = `
+                <div class="message bot-message" style="align-self: flex-end; background-color: white; border: 1px solid #E5E7EB; width: 250px;">
+                    <div class="msg-bubble" style="background-color: transparent; border:none; padding: 10px;">
+                        <div style="display:flex; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:10px;">
+                            <div style="width:40px;height:40px;border-radius:50%;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#374151;font-weight:bold;margin-right:10px;"><i class="fa-solid fa-user"></i></div>
+                            <div>
+                                <h6 style="margin:0;font-size:0.9rem;color:#111827;">${contactName}</h6>
+                                <small style="color:#6B7280;">SuperFormica</small>
+                            </div>
+                        </div>
+                        <p style="margin-bottom:0;text-align:center;"><a href="tel:${contactPhone}" style="color:#25D366;text-decoration:none;font-weight:600;"><i class="fa-brands fa-whatsapp"></i> ${contactPhone}</a></p>
+                        <div style="text-align:right; margin-top:5px;"><span class="msg-time" style="font-size:0.7rem;">${timeLabel} <i class="fa-solid fa-check-double ms-1" style="color: #60A5FA;"></i></span></div>
                     </div>
-                </div>
-            `;
+                </div>`;
+            } else {
+                 msgHtml = `
+                    <div class="system-event">
+                        <div class="event-pill">
+                            <i class="fa-solid fa-info-circle"></i> ${msg.contenido} (${timeLabel})
+                        </div>
+                    </div>
+                `;
+            }
         } else {
             let colorStlye = msg.origen === 'API_TRANSACCIONAL' ? 'background-color: #fff3cd;' : 'background-color: #EFF6FF; border: 1px solid #BFDBFE;';
             let icon = msg.origen === 'API_TRANSACCIONAL' ? '<i class="fa-solid fa-bolt text-warning"></i> ' : '';

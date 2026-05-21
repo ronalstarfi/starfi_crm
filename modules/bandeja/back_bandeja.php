@@ -68,6 +68,10 @@ switch ($action) {
             
             $messages = [];
             while ($row = $res->fetch_assoc()) {
+                // Formatting contact strings sent by BOT
+                if ($row['origen'] == 'BOT' && strpos($row['contenido'], 'Contacto enviado:') === 0) {
+                    $row['tipo'] = 'CONTACTO'; // New type to help UI identify
+                }
                 $messages[] = $row;
             }
             echo json_encode(['status' => 'success', 'data' => $messages]);
