@@ -2,16 +2,16 @@
 
 let activeChatId = null;
 let activeClientId = null;
-let currentFilter = 'mis-chats';
+let currentFilter = 'todos';
 
-$(document).ready(function() {
+$(document).ready(function () {
     // Interceptar errores de AJAX globales
-    $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
+    $(document).ajaxError(function (event, jqxhr, settings, thrownError) {
         if (jqxhr.status === 401) {
             try {
                 let res = JSON.parse(jqxhr.responseText);
                 window.location.href = res.redirect || '/starfi_crm/login.php';
-            } catch(e) {
+            } catch (e) {
                 window.location.href = '/starfi_crm/login.php';
             }
         }
@@ -24,11 +24,11 @@ $(document).ready(function() {
     // Tiempo Real con Server-Sent Events (SSE)
     function iniciarSSE() {
         const evtSource = new EventSource("sse_updates.php");
-        
-        evtSource.onmessage = function(event) {
+
+        evtSource.onmessage = function (event) {
             const data = JSON.parse(event.data);
             if (data.type === 'update') {
-                if(activeChatId !== null && activeChatId !== 0) {
+                if (activeChatId !== null && activeChatId !== 0) {
                     loadMessages(activeChatId, false);
                 } else {
                     loadChats();
@@ -39,19 +39,19 @@ $(document).ready(function() {
             }
         };
 
-        evtSource.onerror = function() {
+        evtSource.onerror = function () {
             evtSource.close();
             setTimeout(iniciarSSE, 5000); // Reintentar en 5 seg
         };
     }
-    
+
     iniciarSSE();
 
-    $('#sendBtn').on('click', function() {
+    $('#sendBtn').on('click', function () {
         sendMessage();
     });
 
-    $('#chatInput').on('keypress', function(e) {
+    $('#chatInput').on('keypress', function (e) {
         if (e.which === 13 && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
@@ -59,9 +59,9 @@ $(document).ready(function() {
     });
 
     // Búsqueda en tiempo real
-    $('.search-bar input').on('keyup', function() {
+    $('.search-bar input').on('keyup', function () {
         let val = $(this).val().toLowerCase();
-        $('#chatList .chat-item').filter(function() {
+        $('#chatList .chat-item').filter(function () {
             $(this).toggle($(this).text().toLowerCase().indexOf(val) > -1)
         });
     });
@@ -82,13 +82,13 @@ $(document).ready(function() {
         }
     } catch (error) {
         console.warn("EmojiButton no disponible:", error);
-        $('#btnEmoji').on('click', function() {
+        $('#btnEmoji').on('click', function () {
             Swal.fire({ icon: 'info', title: 'Próximamente', text: 'El panel de emojis requiere conexión externa.' });
         });
     }
 
     // 2. Templates
-    $('#btnTemplates').on('click', function() {
+    $('#btnTemplates').on('click', function () {
         if (!activeChatId) {
             Swal.fire({ icon: 'warning', text: 'Selecciona una conversación primero.' });
             return;
@@ -96,14 +96,14 @@ $(document).ready(function() {
         $('#modalTemplates').modal('show');
     });
 
-    window.selectTemplate = function(text) {
+    window.selectTemplate = function (text) {
         $('#chatInput').val(text);
         $('#modalTemplates').modal('hide');
         $('#chatInput').focus();
     };
 
     // 3. Attachments
-    $('#btnAttach').on('click', function() {
+    $('#btnAttach').on('click', function () {
         if (!activeChatId && !activeClientId) {
             Swal.fire({ icon: 'warning', text: 'Selecciona una conversación primero.' });
             return;
@@ -111,10 +111,10 @@ $(document).ready(function() {
         $('#fileInput').click();
     });
 
-    $('#fileInput').on('change', function() {
+    $('#fileInput').on('change', function () {
         let file = this.files[0];
-        if(!file) return;
-        
+        if (!file) return;
+
         let formData = new FormData();
         formData.append('action', 'upload_media');
         formData.append('conversacion_id', activeChatId || 0);
@@ -139,7 +139,7 @@ $(document).ready(function() {
             contentType: false,
             processData: false,
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 if (response.status === 'success') {
                     if (activeChatId == 0 && response.new_chat_id) {
                         activeChatId = response.new_chat_id;
@@ -148,20 +148,20 @@ $(document).ready(function() {
                     loadMessages(activeChatId, true);
                 } else {
                     Swal.fire('Error', response.message || 'Error desconocido', 'error');
-                    loadMessages(activeChatId, true); 
+                    loadMessages(activeChatId, true);
                 }
             },
-            error: function() {
+            error: function () {
                 Swal.fire('Error', 'Fallo al subir archivo', 'error');
                 loadMessages(activeChatId, true);
             }
         });
-        
+
         $(this).val(''); // reset
     });
 
     // Delegación de eventos para la lista de chats dinámica (Respaldo)
-    $('#chatList').on('click', '.chat-item', function() {
+    $('#chatList').on('click', '.chat-item', function () {
         const id = $(this).data('id');
         const cliente_id = $(this).data('cliente-id');
         const name = $(this).data('name');
@@ -170,7 +170,7 @@ $(document).ready(function() {
     });
 
     // Función global para clics móviles
-    window.clickChat = function(element) {
+    window.clickChat = function (element) {
         const id = $(element).data('id');
         const cliente_id = $(element).data('cliente-id');
         const name = $(element).data('name');
@@ -179,37 +179,29 @@ $(document).ready(function() {
     };
 
     // 1. Filtros de pestañas
-    $('.tabs .tab').on('click', function() {
+    $('.tabs .tab').on('click', function () {
         $('.tabs .tab').removeClass('active');
         $(this).addClass('active');
         currentFilter = $(this).data('target');
-        
+
         // No reseteamos el chat activo (a petición del usuario)
         // Solo recargamos la lista de chats de la izquierda
         loadChats();
     });
 
     // 2. Perfil 360
-    $('#btnToggleProfile').on('click', function() {
-        if(!activeClientId) {
+    $('#btnToggleProfile').on('click', function () {
+        if (!activeClientId) {
             Swal.fire({ icon: 'warning', text: 'Selecciona una conversación primero.' });
             return;
         }
-        const panel = $('#profilePreviewPanel');
-        panel.toggleClass('open');
-        
-        if (panel.hasClass('open')) {
-            loadProfile360();
-        }
-    });
-
-    $('#btnCloseProfile').on('click', function() {
-        $('#profilePreviewPanel').removeClass('open');
+        $('#modalProfile360').modal('show');
+        loadProfile360();
     });
 
     // 3. Cerrar Chat
-    $('#btnCloseChat').on('click', function() {
-        if(!activeChatId || activeChatId === 0) return;
+    $('#btnCloseChat').on('click', function () {
+        if (!activeChatId || activeChatId === 0) return;
         Swal.fire({
             title: '¿Cerrar Conversación?',
             text: "El chat se marcará como resuelto.",
@@ -222,13 +214,13 @@ $(document).ready(function() {
                 $.ajax({
                     url: 'back_bandeja.php', type: 'POST', dataType: 'json',
                     data: { action: 'close_chat', conversacion_id: activeChatId },
-                    success: function(res) {
-                        if(res.status === 'success'){
+                    success: function (res) {
+                        if (res.status === 'success') {
                             activeChatId = null;
                             loadChats();
                             $('#activeChatView').hide();
                             $('#emptyState').removeClass('d-none').css('display', 'flex');
-                            $('#profilePreviewPanel').removeClass('open');
+                            $('#modalProfile360').modal('hide');
                             Swal.fire('Cerrado', '', 'success');
                         }
                     }
@@ -238,18 +230,18 @@ $(document).ready(function() {
     });
 
     // 4. Reasignar Chat
-    $('#btnReasign').on('click', function() {
-        if(!activeChatId || activeChatId === 0) return;
-        
+    $('#btnReasign').on('click', function () {
+        if (!activeChatId || activeChatId === 0) return;
+
         // Fetch agents first
         $.ajax({
             url: 'back_bandeja.php', type: 'POST', dataType: 'json',
             data: { action: 'get_agents' },
-            success: function(res) {
-                if(res.status === 'success') {
+            success: function (res) {
+                if (res.status === 'success') {
                     let options = {};
                     res.data.forEach(ag => { options[ag.id] = ag.nombre_completo; });
-                    
+
                     Swal.fire({
                         title: 'Reasignar Conversación',
                         input: 'select',
@@ -268,13 +260,13 @@ $(document).ready(function() {
                             $.ajax({
                                 url: 'back_bandeja.php', type: 'POST', dataType: 'json',
                                 data: { action: 'reassign_chat', conversacion_id: activeChatId, nuevo_agente_id: result.value },
-                                success: function(res2) {
-                                    if(res2.status === 'success'){
+                                success: function (res2) {
+                                    if (res2.status === 'success') {
                                         activeChatId = null;
                                         loadChats();
                                         $('#activeChatView').hide();
                                         $('#emptyState').removeClass('d-none').css('display', 'flex');
-                                        $('#profilePreviewPanel').removeClass('open');
+                                        $('#modalProfile360').modal('hide');
                                         Swal.fire('Reasignado', 'La conversación pasó a la cola del otro agente', 'success');
                                     }
                                 }
@@ -293,14 +285,14 @@ function loadChats() {
         type: 'POST',
         dataType: 'json',
         data: { action: 'load_chats', filter: currentFilter },
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 renderChatList(response.data);
             } else {
                 $('#chatList').html(`<div class="p-3 text-danger text-center"><i class="fa-solid fa-triangle-exclamation"></i> Error: ${response.message}</div>`);
             }
         },
-        error: function(xhr, status, error) {
+        error: function (xhr, status, error) {
             if (xhr.status === 401) return; // Se maneja globalmente
             console.error("AJAX Error:", status, error, xhr.responseText);
             let resp = xhr.responseText ? xhr.responseText.replace(/</g, '&lt;').substring(0, 200) : error;
@@ -311,9 +303,9 @@ function loadChats() {
 
 function renderChatList(chats) {
     const list = $('#chatList');
-    
+
     let totalUnread = 0;
-    
+
     if (chats.length === 0) {
         list.html('<div class="p-4 text-center text-muted" style="font-size:0.85rem;"><i class="fa-solid fa-mug-hot fs-3 mb-2 d-block"></i> No hay conversaciones aquí.</div>');
         $('#badgeNoLeidos').hide();
@@ -326,15 +318,15 @@ function renderChatList(chats) {
         let badge = '';
         // Eliminamos las etiquetas "En Espera" y "Nuevo" para no confundir,
         // ya que ahora nos guiamos por el punto naranja de No Leídos.
-        
+
         let unreadDot = '';
         if (chat.no_leidos > 0) {
             totalUnread++;
             unreadDot = `<div style="width:10px;height:10px;background:#e85b14;border-radius:50%;margin-left:auto;"></div>`;
         }
-        
+
         let isActiveClass = (chat.id == activeChatId && chat.id_cliente == activeClientId) ? 'active' : '';
-        
+
         let html = `
             <article class="chat-item ${isActiveClass}" onclick="window.clickChat(this)" style="cursor: pointer;" data-id="${chat.id}" data-cliente-id="${chat.id_cliente}" data-name="${name.replace(/"/g, '&quot;')}" data-phone="${chat.numero_whatsapp}">
                 <div class="chat-avatar">
@@ -356,9 +348,9 @@ function renderChatList(chats) {
         `;
         list.append(html);
     });
-    
+
     if (currentFilter === 'no-leido') {
-        if(totalUnread > 0) $('#badgeNoLeidos').text(totalUnread).show();
+        if (totalUnread > 0) $('#badgeNoLeidos').text(totalUnread).show();
         else $('#badgeNoLeidos').hide();
     }
 }
@@ -367,25 +359,25 @@ function selectChat(id, cliente_id, name, phone) {
     activeChatId = id;
     activeClientId = cliente_id;
     $('.chat-item').removeClass('active');
-    
+
     // Si el chat es nuevo (id = 0), seleccionamos por ID de cliente para evitar seleccionar varios
     if (id === 0) {
         $(`.chat-item[data-cliente-id="${cliente_id}"]`).addClass('active');
     } else {
         $(`.chat-item[data-id="${id}"]`).addClass('active');
     }
-    
+
     // Switch views
     $('#emptyState').hide();
     $('#activeChatView').css('display', 'flex');
-    
+
     // Update Header
     $('#chatHeaderName').text(name);
     $('#chatHeaderPhone').text(`+${phone}`);
     $('#chatHeaderImg').attr('src', `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=F3F4F6&color=37414A`);
-    
+
     // If profile is open, update it
-    if ($('#profilePreviewPanel').hasClass('open')) {
+    if ($('#modalProfile360').hasClass('show')) {
         loadProfile360();
     }
 
@@ -398,7 +390,7 @@ function loadProfile360() {
         type: 'POST',
         dataType: 'json',
         data: { action: 'load_profile', cliente_id: activeClientId },
-        success: function(res) {
+        success: function (res) {
             if (res.status === 'success') {
                 const client = res.data;
                 let cName = client.nombre || client.numero_whatsapp;
@@ -416,16 +408,16 @@ function loadMessages(id, scrollToBottom = true) {
         type: 'POST',
         dataType: 'json',
         data: { action: 'load_messages', conversacion_id: id },
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 renderMessages(response.data, scrollToBottom);
                 // Si el chat tenía un punto naranja (no leído), recargamos la lista para limpiarlo
-                if (currentFilter === 'no-leido' || $('#chatList').find('.chat-item[data-id="'+id+'"] div[style*="background:#e85b14"]').length > 0) {
+                if (currentFilter === 'no-leido' || $('#chatList').find('.chat-item[data-id="' + id + '"] div[style*="background:#e85b14"]').length > 0) {
                     loadChats();
                 }
             }
         },
-        error: function(xhr, status, error) {
+        error: function (xhr, status, error) {
             Swal.fire('Error', 'No se pudieron cargar los mensajes. Servidor no responde.', 'error');
         }
     });
@@ -441,7 +433,7 @@ function renderMessages(messages, scrollToBottom) {
     messages.forEach(msg => {
         let msgHtml = '';
         let timeLabel = formatTime(msg.timestamp);
-        
+
         if (msg.origen === 'CLIENTE') {
             msgHtml = `
                 <div class="message client-message">
@@ -452,11 +444,11 @@ function renderMessages(messages, scrollToBottom) {
                 </div>
             `;
         } else if (msg.origen === 'BOT' || msg.origen === 'EVENTO_SISTEMA') {
-            if(msg.tipo === 'CONTACTO') {
+            if (msg.tipo === 'CONTACTO') {
                 // Parse contact
                 let contactName = msg.contenido.substring(18, msg.contenido.indexOf('(')).trim();
-                let contactPhone = msg.contenido.substring(msg.contenido.indexOf('(')+1, msg.contenido.indexOf(')'));
-                
+                let contactPhone = msg.contenido.substring(msg.contenido.indexOf('(') + 1, msg.contenido.indexOf(')'));
+
                 msgHtml = `
                 <div class="message bot-message" style="align-self: flex-end; background-color: white; border: 1px solid #E5E7EB; width: 250px;">
                     <div class="msg-bubble" style="background-color: transparent; border:none; padding: 10px;">
@@ -472,7 +464,7 @@ function renderMessages(messages, scrollToBottom) {
                     </div>
                 </div>`;
             } else {
-                 msgHtml = `
+                msgHtml = `
                     <div class="system-event">
                         <div class="event-pill">
                             <i class="fa-solid fa-info-circle"></i> ${msg.contenido} (${timeLabel})
@@ -483,7 +475,7 @@ function renderMessages(messages, scrollToBottom) {
         } else {
             let colorStlye = msg.origen === 'API_TRANSACCIONAL' ? 'background-color: #fff3cd;' : 'background-color: #EFF6FF; border: 1px solid #BFDBFE;';
             let icon = msg.origen === 'API_TRANSACCIONAL' ? '<i class="fa-solid fa-bolt text-warning"></i> ' : '';
-            
+
             // Icono de Doble Check
             let estadoIcon = '<i class="fa-solid fa-clock ms-1" style="color: #9CA3AF;"></i>'; // default
             if (msg.estado_envio === 'ENVIADO') estadoIcon = '<i class="fa-solid fa-check ms-1" style="color: #9CA3AF;"></i>';
@@ -511,7 +503,7 @@ function renderMessages(messages, scrollToBottom) {
         }
         area.append(msgHtml);
     });
-    if(scrollToBottom) area.scrollTop(area[0].scrollHeight);
+    if (scrollToBottom) area.scrollTop(area[0].scrollHeight);
 }
 
 function sendMessage() {
@@ -522,7 +514,7 @@ function sendMessage() {
     const input = $('#chatInput');
     const text = input.val().trim();
     if (text === '') return;
-    
+
     const area = $('#messagesArea');
     area.append(`
         <div class="message bot-message" style="align-self: flex-end; background-color: #EFF6FF; border: 1px solid #BFDBFE;">
@@ -534,11 +526,11 @@ function sendMessage() {
     `);
     area.scrollTop(area[0].scrollHeight);
     input.val('');
-    
+
     $.ajax({
         url: 'back_bandeja.php', type: 'POST', dataType: 'json',
         data: { action: 'send_message', conversacion_id: activeChatId, cliente_id: activeClientId, contenido: text },
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 if (activeChatId == 0 && response.new_chat_id) {
                     activeChatId = response.new_chat_id;
@@ -555,5 +547,5 @@ function sendMessage() {
 function formatTime(datetimeStr) {
     if (!datetimeStr) return '';
     const d = new Date(datetimeStr);
-    return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
