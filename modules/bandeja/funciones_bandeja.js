@@ -5,6 +5,18 @@ let activeClientId = null;
 let currentFilter = 'mis-chats';
 
 $(document).ready(function() {
+    // Interceptar errores de AJAX globales
+    $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
+        if (jqxhr.status === 401) {
+            try {
+                let res = JSON.parse(jqxhr.responseText);
+                window.location.href = res.redirect || '/starfi_crm/login.php';
+            } catch(e) {
+                window.location.href = '/starfi_crm/login.php';
+            }
+        }
+    });
+
     loadChats();
 
     // Auto-refresh
@@ -185,6 +197,7 @@ function loadChats() {
             }
         },
         error: function(xhr, status, error) {
+            if (xhr.status === 401) return; // Se maneja globalmente
             console.error("AJAX Error:", status, error, xhr.responseText);
             let resp = xhr.responseText ? xhr.responseText.replace(/</g, '&lt;').substring(0, 200) : error;
             $('#chatList').html(`<div class="p-3 text-danger text-center" style="word-break: break-word;"><i class="fa-solid fa-database d-block mb-2 fs-3"></i> <b>Error de Servidor:</b><br><small>${resp}</small></div>`);

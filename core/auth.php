@@ -13,19 +13,36 @@ function requireAuth() {
     // Límite de inactividad: 30 minutos (1800 segundos)
     $timeout_duration = 1800; 
 
+    // Helper para detectar si es una petición AJAX
+    $is_ajax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
     // 1. Validar si existe el ID de agente en la sesión
     if (!isset($_SESSION['agente_id']) || empty($_SESSION['agente_id'])) {
-        // Redirigir al login
-        header("Location: /starfi_crm/login.php");
-        exit();
+        if ($is_ajax) {
+            header('HTTP/1.1 401 Unauthorized');
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'error', 'message' => 'no_session', 'redirect' => '/starfi_crm/login.php']);
+            exit();
+        } else {
+            // Redirigir al login
+            header("Location: /starfi_crm/login.php");
+            exit();
+        }
     }
 
     // 2. Validar Timeout por inactividad
     if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout_duration)) {
         session_unset();
         session_destroy();
-        header("Location: /starfi_crm/login.php?error=expired");
-        exit();
+        if ($is_ajax) {
+            header('HTTP/1.1 401 Unauthorized');
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'error', 'message' => 'session_expired', 'redirect' => '/starfi_crm/login.php?error=expired']);
+            exit();
+        } else {
+            header("Location: /starfi_crm/login.php?error=expired");
+            exit();
+        }
     }
 
     // 3. Actualizar marca de tiempo de la última actividad
