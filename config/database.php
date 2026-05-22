@@ -4,10 +4,14 @@
 
 function getDbConnection()
 {
-    $host = 'localhost';
-    $user = 'root'; // Usuario por defecto de XAMPP
-    $pass = 'PARALELEPIPEDO3312';     // Contraseña por defecto vacía en XAMPP local
-    $dbname = 'starfi_crm'; // Asegúrate de crear esta BD en PhpMyAdmin y correr el archivo database_schema.sql
+    // Cargar variables de entorno
+    $envPath = __DIR__ . '/../.env';
+    $env = file_exists($envPath) ? parse_ini_file($envPath) : [];
+
+    $host = $env['DB_HOST'] ?? 'localhost';
+    $user = $env['DB_USER'] ?? 'root';
+    $pass = $env['DB_PASS'] ?? '';
+    $dbname = $env['DB_NAME'] ?? 'starfi_crm';
 
     // Crear conexión usando MySQLi
     $con = new mysqli($host, $user, $pass, $dbname);
@@ -15,7 +19,8 @@ function getDbConnection()
     // Verificar conexión
     if ($con->connect_error) {
         // En producción, es mejor registrar en un log en lugar de hacer 'die'
-        die("Error crítico: No se pudo conectar a la base de datos. " . $con->connect_error);
+        error_log("Error crítico: No se pudo conectar a la base de datos. " . $con->connect_error);
+        die("Error crítico: No se pudo conectar a la base de datos.");
     }
 
     // Forzar codificación UTF-8 para evitar problemas con emojis o acentos en WhatsApp

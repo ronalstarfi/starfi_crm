@@ -112,6 +112,49 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
         }
         .action-btn:hover { color: var(--primary); }
         .action-btn.danger:hover { color: var(--starfi-danger); }
+
+        /* Estilos Premium Pestañas y Modales */
+        .nav-tabs .nav-link {
+            border: none;
+            color: #64748B;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 10px 10px 0 0;
+            transition: all 0.3s ease;
+        }
+        .nav-tabs .nav-link:hover {
+            color: var(--starfi-dark);
+            background-color: #F8FAFC;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--primary);
+            background-color: transparent;
+            border-bottom: 3px solid var(--primary);
+        }
+        .modal-content-premium {
+            border-radius: 20px;
+            border: none;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        .modal-header-premium {
+            padding: 20px 30px;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            background-color: #F8FAFC;
+            border-bottom: none;
+        }
+        .form-control-premium, .form-select-premium {
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 12px;
+            transition: all 0.2s;
+            background-color: #F8FAFC;
+        }
+        .form-control-premium:focus, .form-select-premium:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(232, 91, 20, 0.1);
+            background-color: #ffffff;
+        }
     </style>
 </head>
 <body>
@@ -154,7 +197,7 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
                     <span class="agent-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;"><?= htmlspecialchars($nombre_agente) ?></span>
                     <span class="agent-status online">En línea</span>
                 </div>
-                <a href="/starfi_crm/logout.php" class="btn text-danger p-1 m-0" title="Cerrar Sesión" style="font-size: 1.1rem;">
+                <a href="#" onclick="confirmLogout(event)" class="btn text-danger p-1 m-0" title="Cerrar Sesión" style="font-size: 1.1rem;">
                     <i class="fa-solid fa-power-off"></i>
                 </a>
             </div>
@@ -182,51 +225,65 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
                 
                 <!-- GESTOR DE SEDES E INTEGRACIÓN -->
                 <div class="tab-pane fade show active" id="sedes" role="tabpanel">
-                    <div class="config-card">
-                        <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
-                            <h4 class="config-card-title border-0 pb-0 mb-0"><i class="fa-brands fa-whatsapp text-success"></i> Líneas y Sedes</h4>
-                            <button id="btnAddSede" class="btn btn-sm btn-outline-starfi-dark"><i class="fa-solid fa-plus"></i> Añadir Sede</button>
+                    <div class="config-card" style="padding: 0;">
+                        <div class="d-flex justify-content-between align-items-center" style="padding: 20px 24px; border-bottom: 1px solid rgba(0,0,0,0.04);">
+                            <h4 class="config-card-title border-0 pb-0 mb-0"><i class="fa-brands fa-whatsapp text-success me-2"></i> Líneas y Sedes</h4>
+                            <button id="btnAddSede" class="btn btn-starfi-primary" style="border-radius: 30px; font-weight: 600; padding: 8px 20px; box-shadow: 0 4px 12px rgba(232, 91, 20, 0.25);">
+                                <i class="fa-solid fa-plus me-1"></i> Añadir Sede
+                            </button>
                         </div>
                         
-                        <table class="table table-hover table-config">
-                            <thead>
-                                <tr>
-                                    <th>Sede</th>
-                                    <th>Número WhatsApp</th>
-                                    <th>Meta App ID</th>
-                                    <th>Estado Webhook</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="sedesTableBody">
-                                <!-- JS Inject -->
-                            </tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-config mb-0 align-middle table-borderless">
+                                <thead style="background-color: #F8FAFC;">
+                                    <tr>
+                                        <th style="padding-left: 24px;">Sede</th>
+                                        <th>Número WhatsApp</th>
+                                        <th>Meta App ID</th>
+                                        <th>Estado Webhook</th>
+                                        <th style="text-align: right; padding-right: 24px;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sedesTableBody">
+                                    <!-- JS Inject -->
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted p-4">Cargando sedes...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
                 <!-- GESTIÓN DE ACCESOS -->
                 <div class="tab-pane fade" id="usuarios" role="tabpanel">
-                    <div class="config-card">
-                        <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
-                            <h4 class="config-card-title border-0 pb-0 mb-0"><i class="fa-solid fa-users text-starfi-dark"></i> Operadores y Permisos</h4>
-                            <button id="btnAddUser" class="btn btn-sm btn-starfi-primary"><i class="fa-solid fa-user-plus"></i> Nuevo Operador</button>
+                    <div class="config-card" style="padding: 0;">
+                        <div class="d-flex justify-content-between align-items-center" style="padding: 20px 24px; border-bottom: 1px solid rgba(0,0,0,0.04);">
+                            <h4 class="config-card-title border-0 pb-0 mb-0"><i class="fa-solid fa-users text-starfi-dark me-2"></i> Operadores y Permisos</h4>
+                            <button id="btnAddUser" class="btn btn-starfi-primary" style="border-radius: 30px; font-weight: 600; padding: 8px 20px; box-shadow: 0 4px 12px rgba(232, 91, 20, 0.25);">
+                                <i class="fa-solid fa-user-plus me-1"></i> Nuevo Operador
+                            </button>
                         </div>
 
-                        <table class="table table-hover table-config">
-                            <thead>
-                                <tr>
-                                    <th>Usuario</th>
-                                    <th>Rol</th>
-                                    <th>Sede Asignada</th>
-                                    <th>Límite de Chats</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usersTableBody">
-                                <!-- JS Inject -->
-                            </tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-config mb-0 align-middle table-borderless">
+                                <thead style="background-color: #F8FAFC;">
+                                    <tr>
+                                        <th style="padding-left: 24px;">Usuario</th>
+                                        <th>Rol</th>
+                                        <th>Sede Asignada</th>
+                                        <th>Límite de Chats</th>
+                                        <th style="text-align: right; padding-right: 24px;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <!-- JS Inject -->
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted p-4">Cargando usuarios...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -236,35 +293,37 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
 
     <!-- Modal Añadir Sede -->
     <div class="modal fade" id="modalSede" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header border-bottom-0 pb-0">
-                    <h5 class="modal-title brand-font fw-bold text-starfi-dark">Nueva Sede e Integración</h5>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-content-premium">
+                <div class="modal-header modal-header-premium">
+                    <h5 class="modal-title brand-font fw-bold text-starfi-dark mb-0"><i class="fa-solid fa-building me-2 text-starfi-primary"></i>Nueva Sede e Integración</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre de la Sede</label>
-                        <input type="text" class="form-control" id="sedeNombre" placeholder="Ej: Caracas - Principal">
+                <div class="modal-body p-4">
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Nombre de la Sede</label>
+                        <input type="text" class="form-control form-control-premium" id="sedeNombre" placeholder="Ej: Caracas - Principal">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Dirección (Opcional)</label>
-                        <input type="text" class="form-control" id="sedeDireccion" placeholder="Ubicación física">
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Dirección (Opcional)</label>
+                        <input type="text" class="form-control form-control-premium" id="sedeDireccion" placeholder="Ubicación física">
                     </div>
-                    <hr>
-                    <p class="text-muted fw-bold mb-2" style="font-size: 0.85rem;"><i class="fa-brands fa-whatsapp text-success"></i> Conexión a Meta</p>
-                    <div class="mb-3">
-                        <label class="form-label">Número de WhatsApp (Opcional)</label>
-                        <input type="text" class="form-control" id="sedeNumero" placeholder="Ej: +58 414 1234567">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Meta App ID (Opcional)</label>
-                        <input type="text" class="form-control" id="sedeAppId" placeholder="ID de la App en Facebook Developers">
+                    
+                    <div class="p-3 mb-2" style="background-color: #F0FDF4; border-radius: 12px; border: 1px dashed #BBF7D0;">
+                        <p class="text-success fw-bold mb-3" style="font-size: 0.85rem;"><i class="fa-brands fa-whatsapp me-1"></i> Conexión a Meta</p>
+                        <div class="mb-3">
+                            <label class="form-label text-success fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Número de WhatsApp (Opcional)</label>
+                            <input type="text" class="form-control form-control-premium" id="sedeNumero" style="background-color: #ffffff; border-color: #BBF7D0;" placeholder="Ej: +58 414 1234567">
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label text-success fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Meta App ID (Opcional)</label>
+                            <input type="text" class="form-control form-control-premium" id="sedeAppId" style="background-color: #ffffff; border-color: #BBF7D0;" placeholder="ID de la App en Facebook Developers">
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-starfi-primary" id="btnSaveSede">Guardar Sede</button>
+                <div class="modal-footer border-top-0 p-4 pt-0">
+                    <button type="button" class="btn btn-light fw-bold" style="border-radius: 10px; padding: 10px 20px;" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-starfi-primary fw-bold shadow-sm" style="border-radius: 10px; padding: 10px 20px;" id="btnSaveSede">Guardar Sede</button>
                 </div>
             </div>
         </div>
@@ -272,51 +331,57 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
 
     <!-- Modal Añadir Operador -->
     <div class="modal fade" id="modalOperador" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header border-bottom-0 pb-0">
-                    <h5 class="modal-title brand-font fw-bold text-starfi-dark">Nuevo Operador</h5>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-content-premium">
+                <div class="modal-header modal-header-premium">
+                    <h5 class="modal-title brand-font fw-bold text-starfi-dark mb-0"><i class="fa-solid fa-user-tie me-2 text-starfi-primary"></i>Nuevo Operador</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre Completo</label>
-                        <input type="text" class="form-control" id="opNombre" placeholder="Ej: Juan Pérez">
+                <div class="modal-body p-4">
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Nombre Completo</label>
+                        <input type="text" class="form-control form-control-premium" id="opNombre" placeholder="Ej: Juan Pérez">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Correo Electrónico</label>
-                        <input type="email" class="form-control" id="opEmail" placeholder="juan@starfi.com">
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Correo Electrónico</label>
+                        <input type="email" class="form-control form-control-premium" id="opEmail" placeholder="juan@starfi.com">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Contraseña Temporal</label>
-                        <input type="text" class="form-control" id="opPass" value="123456" disabled>
-                        <small class="text-muted">El usuario podrá cambiarla después.</small>
-                    </div>
-                    <div class="row mb-3">
+                    
+                    <div class="row mb-4">
                         <div class="col-6">
-                            <label class="form-label">Rol</label>
-                            <select class="form-select" id="opRol">
+                            <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Rol de Acceso</label>
+                            <select class="form-select form-select-premium" id="opRol">
                                 <option value="AGENTE">Agente</option>
                                 <option value="SUPERVISOR">Supervisor</option>
                                 <option value="ADMIN">Administrador</option>
                             </select>
                         </div>
                         <div class="col-6">
-                            <label class="form-label">Sede Asignada</label>
-                            <select class="form-select" id="opSede">
+                            <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Sede Asignada</label>
+                            <select class="form-select form-select-premium" id="opSede">
                                 <option value="0">Global (Todas)</option>
                                 <!-- Se llenará con JS -->
                             </select>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Límite de Chats Simultáneos</label>
-                        <input type="number" class="form-control" id="opLimite" value="5" min="1" max="20">
+
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Contraseña Temporal</label>
+                        <input type="text" class="form-control form-control-premium" id="opPass" value="123456" disabled>
+                        <small class="text-muted mt-1 d-block"><i class="fa-solid fa-circle-info me-1"></i>El usuario podrá cambiarla después.</small>
+                    </div>
+
+                    <div class="mb-2 p-3" style="background-color: #F8FAFC; border-radius: 12px; border: 1px solid #E2E8F0;">
+                        <label class="form-label text-starfi-dark fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Límite de Chats Simultáneos</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <input type="range" class="form-control-range flex-grow-1" id="opLimite" min="1" max="20" value="5" oninput="document.getElementById('opLimiteNum').innerText = this.value">
+                            <span id="opLimiteNum" class="badge bg-primary fs-6 px-3 py-2 rounded-pill">5</span>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-starfi-primary" id="btnSaveOperador">Crear Operador</button>
+                <div class="modal-footer border-top-0 p-4 pt-0">
+                    <button type="button" class="btn btn-light fw-bold" style="border-radius: 10px; padding: 10px 20px;" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-starfi-primary fw-bold shadow-sm" style="border-radius: 10px; padding: 10px 20px;" id="btnSaveOperador">Crear Operador</button>
                 </div>
             </div>
         </div>

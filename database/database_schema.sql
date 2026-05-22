@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS conversaciones (
     id_cliente INT NOT NULL,
     id_agente INT, -- Puede ser null si el bot está atendiendo
     estado ENUM('BOT_RECOPILANDO', 'ESPERA_ASIGNACION', 'ATENDIENDO', 'RESUELTO', 'CERRADO') DEFAULT 'BOT_RECOPILANDO',
+    mensajes_no_leidos INT DEFAULT 0,
     fecha_inicio DATETIME DEFAULT CURRENT_TIMESTAMP,
     fecha_primera_respuesta DATETIME, -- Para calcular el SLA FRT
     fecha_resolucion DATETIME,
@@ -76,9 +77,21 @@ CREATE TABLE IF NOT EXISTS conversaciones (
 CREATE TABLE IF NOT EXISTS mensajes_y_eventos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     id_conversacion INT NOT NULL,
+    id_mensaje_meta VARCHAR(255),
     tipo ENUM('TEXTO', 'IMAGEN', 'DOCUMENTO', 'EVENTO_SISTEMA') DEFAULT 'TEXTO',
     origen ENUM('CLIENTE', 'BOT', 'AGENTE', 'API_TRANSACCIONAL') NOT NULL,
     contenido TEXT,
+    estado_envio ENUM('ENVIADO', 'ENTREGADO', 'LEIDO', 'FALLIDO') DEFAULT NULL,
+    url_archivo VARCHAR(500),
+    mime_type VARCHAR(100),
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_conversacion) REFERENCES conversaciones(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auditoria_webhooks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    payload_json JSON NOT NULL,
+    procesado BOOLEAN DEFAULT FALSE,
+    error_log TEXT,
+    fecha_recepcion DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

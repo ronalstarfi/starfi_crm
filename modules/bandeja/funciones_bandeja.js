@@ -19,14 +19,33 @@ $(document).ready(function() {
 
     loadChats();
 
-    // Auto-refresh
-    setInterval(function() {
-        if(activeChatId !== null && activeChatId !== 0) {
-            loadMessages(activeChatId, false);
-        } else {
-            loadChats();
-        }
-    }, 5000);
+    loadChats();
+
+    // Tiempo Real con Server-Sent Events (SSE)
+    function iniciarSSE() {
+        const evtSource = new EventSource("sse_updates.php");
+        
+        evtSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'update') {
+                if(activeChatId !== null && activeChatId !== 0) {
+                    loadMessages(activeChatId, false);
+                } else {
+                    loadChats();
+                }
+            } else if (data.type === 'reconnect') {
+                evtSource.close();
+                iniciarSSE(); // Reconectar
+            }
+        };
+
+        evtSource.onerror = function() {
+            evtSource.close();
+            setTimeout(iniciarSSE, 5000); // Reintentar en 5 seg
+        };
+    }
+    
+    iniciarSSE();
 
     $('#sendBtn').on('click', function() {
         sendMessage();
@@ -47,15 +66,98 @@ $(document).ready(function() {
         });
     });
 
-    // Botones de herramientas no implementados
-    $('.tool-btn').on('click', function() {
-        Swal.fire({
-            icon: 'info',
-            title: 'Próximamente',
-            text: 'Las funciones de adjuntos, plantillas y emojis estarán en la próxima actualización.',
-            timer: 2000,
-            showConfirmButton: false
+    // 1. Emoji Picker
+    try {
+        const picker = new EmojiButton({
+            position: 'top-start'
         });
+        const trigger = document.querySelector('#btnEmoji');
+        if (trigger) {
+            picker.on('emoji', selection => {
+                const input = document.querySelector('#chatInput');
+                input.value += selection.emoji;
+                input.focus();
+            });
+            trigger.addEventListener('click', () => picker.togglePicker(trigger));
+        }
+    } catch (error) {
+        console.warn("EmojiButton no disponible:", error);
+        $('#btnEmoji').on('click', function() {
+            Swal.fire({ icon: 'info', title: 'Próximamente', text: 'El panel de emojis requiere conexión externa.' });
+        });
+    }
+
+    // 2. Templates
+    $('#btnTemplates').on('click', function() {
+        if (!activeChatId) {
+            Swal.fire({ icon: 'warning', text: 'Selecciona una conversación primero.' });
+            return;
+        }
+        $('#modalTemplates').modal('show');
+    });
+
+    window.selectTemplate = function(text) {
+        $('#chatInput').val(text);
+        $('#modalTemplates').modal('hide');
+        $('#chatInput').focus();
+    };
+
+    // 3. Attachments
+    $('#btnAttach').on('click', function() {
+        if (!activeChatId && !activeClientId) {
+            Swal.fire({ icon: 'warning', text: 'Selecciona una conversación primero.' });
+            return;
+        }
+        $('#fileInput').click();
+    });
+
+    $('#fileInput').on('change', function() {
+        let file = this.files[0];
+        if(!file) return;
+        
+        let formData = new FormData();
+        formData.append('action', 'upload_media');
+        formData.append('conversacion_id', activeChatId || 0);
+        formData.append('cliente_id', activeClientId || 0);
+        formData.append('file', file);
+
+        // UI loading
+        const area = $('#messagesArea');
+        area.append(`
+            <div class="message bot-message" style="align-self: flex-end; background-color: #EFF6FF; border: 1px solid #BFDBFE;">
+                <div class="msg-bubble" style="background-color: transparent; border:none; padding-bottom:5px;">
+                    <p style="margin-bottom:0;"><i class="fa-solid fa-spinner fa-spin"></i> Subiendo archivo...</p>
+                </div>
+            </div>
+        `);
+        area.scrollTop(area[0].scrollHeight);
+
+        $.ajax({
+            url: 'back_bandeja.php',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    if (activeChatId == 0 && response.new_chat_id) {
+                        activeChatId = response.new_chat_id;
+                        $('.chat-item.active').attr('data-id', activeChatId);
+                    }
+                    loadMessages(activeChatId, true);
+                } else {
+                    Swal.fire('Error', response.message || 'Error desconocido', 'error');
+                    loadMessages(activeChatId, true); 
+                }
+            },
+            error: function() {
+                Swal.fire('Error', 'Fallo al subir archivo', 'error');
+                loadMessages(activeChatId, true);
+            }
+        });
+        
+        $(this).val(''); // reset
     });
 
     // Delegación de eventos para la lista de chats dinámica (Respaldo)
@@ -81,10 +183,9 @@ $(document).ready(function() {
         $('.tabs .tab').removeClass('active');
         $(this).addClass('active');
         currentFilter = $(this).data('target');
-        activeChatId = null; // Reset chat when switching tabs
-        $('#messagesArea').html('<div class="text-center text-muted mt-5">Selecciona un chat.</div>');
-        $('.client-info h3').text('...');
-        $('.client-info span').text('Selecciona una conversación');
+        
+        // No reseteamos el chat activo (a petición del usuario)
+        // Solo recargamos la lista de chats de la izquierda
         loadChats();
     });
 
@@ -125,7 +226,8 @@ $(document).ready(function() {
                         if(res.status === 'success'){
                             activeChatId = null;
                             loadChats();
-                            $('#messagesArea').empty();
+                            $('#activeChatView').hide();
+                            $('#emptyState').removeClass('d-none').css('display', 'flex');
                             $('#profilePreviewPanel').removeClass('open');
                             Swal.fire('Cerrado', '', 'success');
                         }
@@ -170,7 +272,9 @@ $(document).ready(function() {
                                     if(res2.status === 'success'){
                                         activeChatId = null;
                                         loadChats();
-                                        $('#messagesArea').empty();
+                                        $('#activeChatView').hide();
+                                        $('#emptyState').removeClass('d-none').css('display', 'flex');
+                                        $('#profilePreviewPanel').removeClass('open');
                                         Swal.fire('Reasignado', 'La conversación pasó a la cola del otro agente', 'success');
                                     }
                                 }
@@ -270,6 +374,10 @@ function selectChat(id, cliente_id, name, phone) {
     } else {
         $(`.chat-item[data-id="${id}"]`).addClass('active');
     }
+    
+    // Switch views
+    $('#emptyState').hide();
+    $('#activeChatView').css('display', 'flex');
     
     // Update Header
     $('#chatHeaderName').text(name);
@@ -375,11 +483,28 @@ function renderMessages(messages, scrollToBottom) {
         } else {
             let colorStlye = msg.origen === 'API_TRANSACCIONAL' ? 'background-color: #fff3cd;' : 'background-color: #EFF6FF; border: 1px solid #BFDBFE;';
             let icon = msg.origen === 'API_TRANSACCIONAL' ? '<i class="fa-solid fa-bolt text-warning"></i> ' : '';
+            
+            // Icono de Doble Check
+            let estadoIcon = '<i class="fa-solid fa-clock ms-1" style="color: #9CA3AF;"></i>'; // default
+            if (msg.estado_envio === 'ENVIADO') estadoIcon = '<i class="fa-solid fa-check ms-1" style="color: #9CA3AF;"></i>';
+            if (msg.estado_envio === 'ENTREGADO') estadoIcon = '<i class="fa-solid fa-check-double ms-1" style="color: #9CA3AF;"></i>';
+            if (msg.estado_envio === 'LEIDO') estadoIcon = '<i class="fa-solid fa-check-double ms-1" style="color: #60A5FA;"></i>';
+            if (msg.estado_envio === 'FALLIDO') estadoIcon = '<i class="fa-solid fa-circle-exclamation ms-1" style="color: #EF4444;"></i>';
+
+            // Soporte Multimedia
+            let mediaHtml = '';
+            if (msg.tipo === 'IMAGEN' && msg.url_archivo) {
+                mediaHtml = `<div style="margin-bottom:8px; border-radius:8px; overflow:hidden; background:#E5E7EB; display:flex; align-items:center; justify-content:center; height:150px;"><i class="fa-solid fa-image fs-1 text-muted"></i></div>`;
+            } else if (msg.tipo === 'DOCUMENTO' && msg.url_archivo) {
+                mediaHtml = `<div style="margin-bottom:8px; padding:10px; border-radius:8px; background:#E5E7EB; display:flex; align-items:center; gap:10px;"><i class="fa-solid fa-file-pdf text-danger fs-3"></i> <b>Documento Adjunto</b></div>`;
+            }
+
             msgHtml = `
                 <div class="message bot-message" style="align-self: flex-end; ${colorStlye}">
                     <div class="msg-bubble" style="background-color: transparent; border:none; padding-bottom:5px;">
+                        ${mediaHtml}
                         <p style="margin-bottom:0;">${icon}${msg.contenido}</p>
-                        <span class="msg-time">${timeLabel} <i class="fa-solid fa-check-double ms-1" style="color: #60A5FA;"></i></span>
+                        <span class="msg-time">${timeLabel} ${estadoIcon}</span>
                     </div>
                 </div>
             `;

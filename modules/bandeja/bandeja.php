@@ -21,9 +21,10 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../css/styles.css">
+    <!-- Emoji Picker -->
+    <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.0/dist/index.min.js"></script>
 </head>
 <body>
 
@@ -98,43 +99,51 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
         </section>
 
         <!-- Active Conversation Panel (Right Column) -->
-        <section class="conversation-panel">
-            <!-- Header -->
-            <header class="conv-header">
-                <div class="client-info">
-                    <img id="chatHeaderImg" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Avatar" style="background-color: #F3F4F6;">
-                    <div>
-                        <h3 id="chatHeaderName">Selecciona un chat</h3>
-                        <span id="chatHeaderPhone">Esperando selección...</span>
-                    </div>
-                </div>
-                <div class="conv-actions">
-                    <button class="icon-btn" title="Ver Perfil 360" id="btnToggleProfile"><i class="fa-solid fa-id-card"></i></button>
-                    <button class="icon-btn" title="Reasignar" id="btnReasign"><i class="fa-solid fa-user-plus"></i></button>
-                    <button class="icon-btn" title="Cerrar Chat" id="btnCloseChat"><i class="fa-solid fa-check"></i></button>
-                </div>
-            </header>
-
-            <div class="messages-area" id="messagesArea">
-                <div class="text-center text-muted mt-5 d-flex flex-column align-items-center justify-content-center" style="height: 100%;">
-                    <i class="fa-solid fa-comments fs-1 mb-3 opacity-50"></i>
-                    <h5>Bienvenido a tu Bandeja</h5>
-                    <p>Selecciona una conversación de la lista para comenzar a chatear.</p>
-                </div>
+        <section class="conversation-panel" style="position: relative;">
+            
+            <!-- Empty State -->
+            <div id="emptyState" style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%;" class="text-muted">
+                <i class="fa-solid fa-comments fs-1 mb-3 opacity-50"></i>
+                <h5>Bienvenido a tu Bandeja</h5>
+                <p>Selecciona una conversación de la lista para comenzar a chatear.</p>
             </div>
 
-            <!-- Input Area -->
-            <footer class="input-area">
-                <div class="tools">
-                    <button class="tool-btn" title="Adjuntar"><i class="fa-solid fa-paperclip"></i></button>
-                    <button class="tool-btn" title="Plantillas"><i class="fa-solid fa-bolt"></i></button>
-                    <button class="tool-btn" title="Emoji"><i class="fa-regular fa-face-smile"></i></button>
+            <!-- Active Chat View (Oculto hasta seleccionar) -->
+            <div id="activeChatView" style="display:none; flex-direction:column; height:100%; width:100%;">
+                <!-- Header -->
+                <header class="conv-header">
+                    <div class="client-info">
+                        <img id="chatHeaderImg" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Avatar" style="background-color: #F3F4F6;">
+                        <div>
+                            <h3 id="chatHeaderName">...</h3>
+                            <span id="chatHeaderPhone">...</span>
+                        </div>
+                    </div>
+                    <div class="conv-actions">
+                        <button class="icon-btn" title="Ver Perfil 360" id="btnToggleProfile"><i class="fa-solid fa-id-card"></i></button>
+                        <button class="icon-btn" title="Reasignar" id="btnReasign"><i class="fa-solid fa-user-plus"></i></button>
+                        <button class="icon-btn" title="Cerrar Chat" id="btnCloseChat"><i class="fa-solid fa-check"></i></button>
+                    </div>
+                </header>
+
+                <div class="messages-area" id="messagesArea">
+                    <!-- Mensajes cargan aquí -->
                 </div>
-                <div class="input-box">
-                    <textarea placeholder="Escribe un mensaje..." rows="1" id="chatInput"></textarea>
-                    <button class="send-btn" id="sendBtn"><i class="fa-solid fa-paper-plane"></i></button>
-                </div>
-            </footer>
+
+                <!-- Input Area -->
+                <footer class="input-area">
+                    <div class="tools">
+                        <input type="file" id="fileInput" style="display:none;" accept="image/*,application/pdf,video/mp4">
+                        <button class="tool-btn" id="btnAttach" title="Adjuntar"><i class="fa-solid fa-paperclip"></i></button>
+                        <button class="tool-btn" id="btnTemplates" title="Plantillas"><i class="fa-solid fa-bolt"></i></button>
+                        <button class="tool-btn" id="btnEmoji" title="Emoji"><i class="fa-regular fa-face-smile"></i></button>
+                    </div>
+                    <div class="input-box">
+                        <textarea placeholder="Escribe un mensaje..." rows="1" id="chatInput"></textarea>
+                        <button class="send-btn" id="sendBtn"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </footer>
+            </div>
         </section>
 
         <!-- Right Sidebar Profile Preview (Hidden by default, shown when clicking ID card) -->
@@ -165,6 +174,38 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
         </aside>
 
     </main>
+
+    <!-- Modal Plantillas Rápidas -->
+    <div class="modal fade" id="modalTemplates" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0">
+            <h5 class="modal-title fw-bold">Respuestas Rápidas</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-0">
+            <div class="list-group list-group-flush" id="templatesList">
+                <button type="button" class="list-group-item list-group-item-action p-3" onclick="selectTemplate('Hola, soy el asesor asignado. ¿En qué puedo ayudarte?')">
+                    <strong>Saludo inicial</strong><br>
+                    <small class="text-muted">Hola, soy el asesor asignado. ¿En qué puedo ayudarte?</small>
+                </button>
+                <button type="button" class="list-group-item list-group-item-action p-3" onclick="selectTemplate('Por favor envíame tu número de identificación para verificar en el sistema.')">
+                    <strong>Solicitar ID</strong><br>
+                    <small class="text-muted">Por favor envíame tu número de identificación...</small>
+                </button>
+                <button type="button" class="list-group-item list-group-item-action p-3" onclick="selectTemplate('Dame un momento mientras verifico la información. No te retires por favor.')">
+                    <strong>Espera un momento</strong><br>
+                    <small class="text-muted">Dame un momento mientras verifico la información...</small>
+                </button>
+                <button type="button" class="list-group-item list-group-item-action p-3" onclick="selectTemplate('Tu solicitud ha sido procesada con éxito. ¡Gracias por contactarnos!')">
+                    <strong>Despedida / Éxito</strong><br>
+                    <small class="text-muted">Tu solicitud ha sido procesada con éxito...</small>
+                </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Toast Notification Container -->
     <div id="toastContainer" class="toast-container"></div>

@@ -73,6 +73,27 @@ switch ($action) {
         }
         break;
 
+    case 'check_duplicate':
+        $numero_whatsapp = preg_replace('/[^0-9]/', '', $_POST['numero_whatsapp'] ?? '');
+        if (empty($numero_whatsapp)) {
+            echo json_encode(['status' => 'error', 'message' => 'Número vacío']);
+            exit;
+        }
+        
+        $stmt = $con->prepare("SELECT id, nombre FROM clientes_contactos WHERE numero_whatsapp = ? LIMIT 1");
+        if ($stmt) {
+            $stmt->bind_param("s", $numero_whatsapp);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($res->num_rows > 0) {
+                $client = $res->fetch_assoc();
+                echo json_encode(['status' => 'exists', 'client' => $client]);
+            } else {
+                echo json_encode(['status' => 'clean']);
+            }
+        }
+        break;
+
     case 'create_profile':
         $nombre = $_POST['nombre'] ?? '';
         $direccion = $_POST['direccion'] ?? '';

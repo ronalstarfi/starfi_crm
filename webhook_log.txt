@@ -1,7 +1,0 @@
-2026-05-21 16:49:30 - {"entry":[{"changes":[{"value":{"messages":[{"from":"1234567890","id":"msg1","timestamp":"1600000000","text":{"body":"Hola"}}],"contacts":[{"profile":{"name":"Test"}}],"metadata":{"phone_number_id":"123","display_phone_number":"123"}}]}]}]}
-2026-05-21 16:51:11 - {"entry":[{"changes":[{"value":{"messages":[{"from":"5555555","id":"msg999","timestamp":"1600000000","text":{"body":"Prueba_Ahora"}}],"contacts":[{"profile":{"name":"Test"}}],"metadata":{"phone_number_id":"123","display_phone_number":"123"}}]}]}]}
-2026-05-21 16:51:50 - 
-2026-05-21 16:53:26 - {"entry":[{"changes":[{"value":{"messages":[{"from":"7777777","id":"msg999","timestamp":"1600000000","text":{"body":"Tercera_Prueba"}}],"contacts":[{"profile":{"name":"Test"}}],"metadata":{"phone_number_id":"123","display_phone_number":"123"}}]}]}]}
-2026-05-21 16:54:01 - {"entry":[{"changes":[{"value":{"messages":[{"from":"7777777","id":"msg999","timestamp":"1600000000","text":{"body":"Cuarta_Prueba"}}],"contacts":[{"profile":{"name":"Test"}}],"metadata":{"phone_number_id":"123","display_phone_number":"123"}}]}]}]}
-JSON Error: State mismatch (invalid or malformed JSON)
-Exited because respuesta is false or no value

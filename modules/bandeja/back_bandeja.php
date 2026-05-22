@@ -52,7 +52,7 @@ switch ($action) {
         $conversacion_id = intval($_POST['conversacion_id'] ?? 0);
         
         $query = "
-            SELECT id, tipo, origen, contenido, timestamp 
+            SELECT id, tipo, origen, contenido, timestamp, estado_envio, url_archivo 
             FROM mensajes_y_eventos 
             WHERE id_conversacion = ? 
             ORDER BY timestamp ASC
@@ -167,6 +167,130 @@ switch ($action) {
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Fallo al guardar mensaje en BD.']);
             }
+        }
+        break;
+
+    case 'upload_media':
+        $conversacion_id = intval($_POST['conversacion_id'] ?? 0);
+        $cliente_id = intval($_POST['cliente_id'] ?? 0);
+        
+        if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['status' => 'error', 'message' => 'Error al subir archivo.']);
+            exit;
+        }
+        
+        $file = $_FILES['file'];
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $mime = mime_content_type($file['tmp_name']);
+        
+        $allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4'];
+        if (!in_array($mime, $allowed)) {
+            echo json_encode(['status' => 'error', 'message' => 'Tipo de archivo no permitido.']);
+            exit;
+        }
+
+        $filename = uniqid('media_') . '.' . $ext;
+        $dest_path = __DIR__ . '/../../assets/uploads/' . $filename;
+        
+        if (move_uploaded_file($file['tmp_name'], $dest_path)) {
+            $url_archivo = '/starfi_crm/assets/uploads/' . $filename;
+            $tipo_bd = (strpos($mime, 'image') !== false) ? 'IMAGEN' : 'DOCUMENTO';
+            $contenido = $file['name'];
+            
+            $is_new_chat = false;
+            // Si no hay conversación activa, la creamos (Misma lógica que enviar mensaje)
+            if ($conversacion_id <= 0 && $cliente_id > 0) {
+                $resLinea = $con->query("SELECT id FROM lineas_whatsapp WHERE estado_conexion = 'CONECTADO' LIMIT 1");
+                $id_linea = ($resLinea && $resLinea->num_rows > 0) ? $resLinea->fetch_assoc()['id'] : 1;
+                $stmt = $con->prepare("INSERT INTO conversaciones (id_linea, id_cliente, id_agente, estado) VALUES (?, ?, ?, 'ATENDIENDO')");
+                $stmt->bind_param("iii", $id_linea, $cliente_id, $agente_id);
+                $stmt->execute();
+                $conversacion_id = $stmt->insert_id;
+                $is_new_chat = true;
+            } else {
+                $con->query("UPDATE conversaciones SET estado = 'ATENDIENDO', id_agente = $agente_id, fecha_primera_respuesta = IFNULL(fecha_primera_respuesta, NOW()) WHERE id = $conversacion_id AND (id_agente IS NULL OR estado = 'ESPERA_ASIGNACION')");
+            }
+            
+            // -------------------------------------------------------------
+            // INICIO BLOQUE ENVÍO A WHATSAPP CLOUD API (MULTIMEDIA)
+            // -------------------------------------------------------------
+            $queryChat = "
+                SELECT c.id_cliente, cl.numero_whatsapp, l.meta_token, l.meta_app_id as phone_number_id
+                FROM conversaciones c
+                JOIN clientes_contactos cl ON c.id_cliente = cl.id
+                JOIN lineas_whatsapp l ON c.id_linea = l.id
+                WHERE c.id = $conversacion_id
+            ";
+            $resChat = $con->query($queryChat);
+            $chat_data = $resChat ? $resChat->fetch_assoc() : null;
+
+            if ($chat_data && !empty($chat_data['meta_token']) && $chat_data['meta_token'] !== 'temp_token') {
+                $numero_destino = preg_replace('/[^0-9]/', '', $chat_data['numero_whatsapp']);
+                $meta_token = $chat_data['meta_token'];
+                $phone_number_id = $chat_data['phone_number_id'];
+
+                // 1. Subir archivo a los servidores de Meta para obtener un Media ID
+                $media_url = "https://graph.facebook.com/v19.0/{$phone_number_id}/media";
+                $cfile = new CURLFile($dest_path, $mime, $filename);
+                $post_media = [
+                    'messaging_product' => 'whatsapp',
+                    'file' => $cfile
+                ];
+
+                $ch = curl_init($media_url);
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $post_media);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Authorization: Bearer ' . $meta_token
+                ]);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                $media_response = curl_exec($ch);
+                curl_close($ch);
+                
+                $media_data = json_decode($media_response, true);
+                
+                // 2. Si la subida fue exitosa, enviar el mensaje con el Media ID
+                if (isset($media_data['id'])) {
+                    $media_id = $media_data['id'];
+                    $msg_url = "https://graph.facebook.com/v19.0/{$phone_number_id}/messages";
+                    
+                    $meta_type = (strpos($mime, 'image') !== false) ? 'image' : 'document';
+                    
+                    $post_msg = [
+                        'messaging_product' => 'whatsapp',
+                        'recipient_type' => 'individual',
+                        'to' => $numero_destino,
+                        'type' => $meta_type,
+                        $meta_type => [
+                            'id' => $media_id
+                        ]
+                    ];
+
+                    $ch2 = curl_init($msg_url);
+                    curl_setopt($ch2, CURLOPT_POST, 1);
+                    curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($post_msg));
+                    curl_setopt($ch2, CURLOPT_HTTPHEADER, [
+                        'Authorization: Bearer ' . $meta_token,
+                        'Content-Type: application/json'
+                    ]);
+                    curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+                    $response2 = curl_exec($ch2);
+                    curl_close($ch2);
+                }
+            }
+            // -------------------------------------------------------------
+            // FIN BLOQUE ENVÍO A WHATSAPP
+            // -------------------------------------------------------------
+            // Guardar en BD
+            $stmt = $con->prepare("INSERT INTO mensajes_y_eventos (id_conversacion, tipo, origen, contenido, url_archivo, mime_type) VALUES (?, ?, 'AGENTE', ?, ?, ?)");
+            $stmt->bind_param("issss", $conversacion_id, $tipo_bd, $contenido, $url_archivo, $mime);
+            if ($stmt->execute()) {
+                echo json_encode(['status' => 'success', 'new_chat_id' => ($is_new_chat ? $conversacion_id : null)]);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Fallo al guardar en BD.']);
+            }
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Fallo al mover el archivo al servidor.']);
         }
         break;
 

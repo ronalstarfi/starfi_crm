@@ -39,6 +39,138 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
             background-color: var(--bg-main);
             overflow-y: auto;
             border-right: 1px solid var(--border-color);
+                   /* Buscador moderno en tabla (Premium) */
+            .table-toolbar {
+                background-color: #ffffff;
+                padding: 16px 24px;
+                border-bottom: 1px solid rgba(0,0,0,0.04);
+            }
+            .search-bar-modern {
+                display: flex;
+                align-items: center;
+                background-color: #ffffff;
+                border-radius: 30px;
+                padding: 8px 20px;
+                border: 1px solid #E2E8F0;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+                transition: all 0.3s ease;
+            }
+            .search-bar-modern:focus-within {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 4px rgba(232, 91, 20, 0.1);
+                transform: translateY(-1px);
+            }
+            .search-bar-modern i {
+                color: #94A3B8;
+                font-size: 1rem;
+                transition: color 0.3s;
+            }
+            .search-bar-modern:focus-within i {
+                color: var(--primary);
+            }
+            .search-bar-modern input {
+                width: 100%;
+                border: none;
+                background: transparent;
+                padding: 4px 12px;
+                font-size: 0.95rem;
+                color: #334155;
+            }
+            .search-bar-modern input::placeholder {
+                color: #94A3B8;
+                font-weight: 400;
+            }
+            .search-bar-modern input:focus {
+                outline: none;
+            }
+            
+            /* Botón Nuevo Cliente Premium */
+            #btnAddClient {
+                border-radius: 30px !important;
+                padding: 10px 24px;
+                font-weight: 600;
+                letter-spacing: 0.3px;
+                box-shadow: 0 4px 12px rgba(232, 91, 20, 0.25);
+                transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            }
+            #btnAddClient:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 15px rgba(232, 91, 20, 0.35);
+            }
+
+            /* Sortable headers */
+            th.sortable {
+                cursor: pointer;
+                user-select: none;
+                position: relative;
+                transition: background-color 0.2s;
+            }
+            th.sortable:hover {
+                background-color: #F8FAFC;
+            }
+            th.sortable i {
+                margin-left: 5px;
+                color: #CBD5E1;
+                font-size: 0.8em;
+                transition: color 0.2s;
+            }
+            th.sortable.asc i.fa-sort-up,
+            th.sortable.desc i.fa-sort-down {
+                color: var(--primary);
+            }
+            
+            /* Paginación Premium */
+            .pagination-container {
+                padding: 16px 24px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-top: 1px solid rgba(0,0,0,0.04);
+                background-color: #FCFDFD;
+                border-bottom-left-radius: 8px;
+                border-bottom-right-radius: 8px;
+            }
+            .page-info {
+                font-size: 0.85rem;
+                color: #64748B;
+                font-weight: 500;
+                background: #F1F5F9;
+                padding: 6px 14px;
+                border-radius: 20px;
+                border: 1px solid #E2E8F0;
+            }
+            .page-btn {
+                border: 1px solid #E2E8F0;
+                background-color: #ffffff;
+                padding: 8px 20px;
+                border-radius: 20px;
+                color: #475569;
+                font-size: 0.85rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .page-btn:hover:not(:disabled) {
+                background-color: var(--primary);
+                color: #ffffff;
+                border-color: var(--primary);
+                box-shadow: 0 4px 10px rgba(232, 91, 20, 0.2);
+                transform: translateY(-1px);
+            }
+            .page-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                background-color: #F8FAFC;
+            }: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            padding: 15px;
         }
 
         .directory-header {
@@ -150,66 +282,99 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
         /* Columna Izquierda: Datos */
         .profile-data-col {
             width: 45%;
-            padding: 20px;
-            border-right: 1px solid var(--border-color);
-            background-color: var(--bg-surface);
+            padding: 30px 40px;
+            border-right: 1px solid rgba(0,0,0,0.04);
+            background-color: #ffffff;
+            overflow-y: auto;
         }
 
         .profile-avatar-large {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
 
         .profile-avatar-large img {
-            width: 80px;
-            height: 80px;
-            border-radius: 12px;
-            margin-bottom: 10px;
+            width: 90px;
+            height: 90px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            object-fit: cover;
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         .form-group label {
             font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-bottom: 5px;
+            color: #64748B;
+            margin-bottom: 8px;
             display: block;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .form-control-custom {
             width: 100%;
-            padding: 8px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 0.9rem;
-            color: var(--text-main);
+            padding: 12px 16px;
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            color: #1E293B;
             background-color: #F8FAFC;
+            transition: all 0.2s ease;
         }
 
         .form-control-custom:focus {
             outline: none;
             border-color: var(--primary);
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(232, 91, 20, 0.1);
+        }
+        
+        /* Inputs Bootstrap en el modal */
+        #profPhone, #profPrefix {
+            border: 1px solid #E2E8F0;
+            background-color: #F8FAFC;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            color: #1E293B;
+        }
+        #profPrefix {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            border-right: 0;
+        }
+        #profPhone {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        #profPhone:focus, #profPrefix:focus {
+            border-color: var(--primary);
+            box-shadow: none;
             background-color: #fff;
         }
 
         /* Columna Derecha: Timeline */
         .profile-timeline-col {
             width: 55%;
-            padding: 20px;
-            background-color: var(--bg-main);
+            padding: 30px 40px;
+            background-color: #F8FAFC;
             display: flex;
             flex-direction: column;
+            overflow-y: auto;
         }
 
         .timeline-header {
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: var(--starfi-dark);
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 10px;
+            font-weight: 700;
+            margin-bottom: 25px;
+            color: #0F172A;
+            padding-bottom: 15px;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #E2E8F0;
         }
 
         .timeline-feed {
@@ -263,16 +428,33 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
         }
 
         .timeline-time {
-            font-size: 0.7rem;
-            color: var(--text-muted);
+            font-size: 0.75rem;
+            color: #94A3B8;
             margin-bottom: 5px;
             display: block;
+            font-weight: 500;
         }
 
         .timeline-text {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             margin: 0;
-            line-height: 1.4;
+            line-height: 1.5;
+            color: #334155;
+        }
+        
+        .empty-timeline {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #94A3B8;
+            text-align: center;
+        }
+        .empty-timeline i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #CBD5E1;
         }
 
     </style>
@@ -335,99 +517,113 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
                         <h2 class="brand-font mb-1" style="font-weight: 600;">Directorio de Clientes</h2>
                         <p class="text-muted" style="font-size: 0.9rem;">Gestión centralizada de contactos y prospectos</p>
                     </div>
-                    <div class="d-flex gap-2">
-                        <div class="search-bar" style="width: 300px;">
-                            <i class="fa-solid fa-search"></i>
-                            <input type="text" id="searchClient" placeholder="Buscar por nombre, número o etiqueta...">
-                        </div>
-                        <button id="btnAddClient" class="btn btn-starfi-primary d-flex align-items-center gap-2">
-                            <i class="fa-solid fa-user-plus"></i> Nuevo Cliente
-                        </button>
-                    </div>
                 </div>
 
                 <div class="client-table">
-                    <table class="table table-hover">
+                    <!-- Toolbar de la Tabla -->
+                    <div class="table-toolbar d-flex justify-content-between align-items-center border-bottom">
+                        <div class="search-bar-modern" style="width: 350px;">
+                            <i class="fa-solid fa-search text-muted"></i>
+                            <input type="text" id="searchClient" placeholder="Buscar por nombre o número...">
+                        </div>
+                        <button id="btnAddClient" class="btn btn-starfi-primary d-flex align-items-center gap-2" style="border-radius: 8px;">
+                            <i class="fa-solid fa-user-plus"></i> Nuevo Cliente
+                        </button>
+                    </div>
+
+                    <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>Cliente</th>
-                                <th>Teléfono</th>
-                                <th>Estado</th>
+                                <th class="sortable" data-sort="nombre">Cliente <i class="fa-solid fa-sort"></i></th>
+                                <th class="sortable" data-sort="telefono">Teléfono <i class="fa-solid fa-sort"></i></th>
+                                <th class="sortable" data-sort="estado">Estado <i class="fa-solid fa-sort"></i></th>
                                 <th>Etiquetas</th>
-                                <th>Último Contacto</th>
+                                <th class="sortable" data-sort="fecha">Último Contacto <i class="fa-solid fa-sort"></i></th>
                             </tr>
                         </thead>
                         <tbody id="clientsTableBody">
                             <!-- JS Inject -->
                         </tbody>
                     </table>
+                    
+                    <!-- Paginación -->
+                    <div class="pagination-container">
+                        <span class="page-info" id="pageInfo">Mostrando 0 - 0 de 0 clientes</span>
+                        <div class="d-flex gap-2">
+                            <button class="page-btn" id="btnPrevPage" disabled><i class="fa-solid fa-chevron-left me-1"></i> Anterior</button>
+                            <button class="page-btn" id="btnNextPage" disabled>Siguiente <i class="fa-solid fa-chevron-right ms-1"></i></button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <!-- Panel Lateral de Ficha de Cliente (Layout 2 Columnas) -->
-            <aside class="client-profile-panel open" id="profilePanel">
-                <div class="profile-header-top">
-                    <h5 class="mb-0 brand-font fw-bold text-starfi-dark"><i class="fa-solid fa-id-card-clip me-2 text-starfi-primary"></i>Ficha de Cliente 360</h5>
-                    <button class="btn btn-sm btn-outline-secondary border-0" onclick="toggleProfilePanel()"><i class="fa-solid fa-xmark fs-5"></i></button>
-                </div>
-                
-                <div class="profile-body-scroll">
+            <!-- Modal Ficha de Cliente (Layout 2 Columnas) -->
+            <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-centered">
+                    <div class="modal-content overflow-hidden">
+                        <div class="modal-header border-0 bg-light">
+                            <h5 class="modal-title mb-0 brand-font fw-bold text-starfi-dark"><i class="fa-solid fa-id-card-clip me-2 text-starfi-primary"></i>Ficha de Cliente 360</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        
+                        <div class="modal-body p-0">
+                            <div class="profile-body-scroll d-flex flex-row" style="height: 650px;">
                     <!-- Columna Izquierda: Datos -->
                     <div class="profile-data-col">
                         <div class="profile-avatar-large">
                             <img id="profAvatarImg" src="https://ui-avatars.com/api/?name=User&background=E85B14&color=fff" alt="Avatar">
-                            <h5 class="brand-font fw-bold mb-0" id="profTitleName">Nombre Cliente</h5>
-                            <small class="text-muted" id="profTitleId">ID: CLI-000</small>
+                            <h4 class="brand-font fw-bold mb-1" id="profTitleName" style="color: #0F172A;">Nombre Cliente</h4>
+                            <span class="badge bg-light text-secondary border" id="profTitleId">ID: CLI-000</span>
                         </div>
 
                         <div class="form-group">
                             <label>Nombre Comercial / Razón Social</label>
-                            <input type="text" id="profName" class="form-control-custom" value="">
-                        </div>
-                        <div class="form-group mb-3">
-                    <label class="form-label">Número de WhatsApp</label>
-                    <div class="input-group">
-                        <select class="form-select bg-light" id="profPrefix" style="max-width: 100px;">
-                            <option value="58414">0414</option>
-                            <option value="58424">0424</option>
-                            <option value="58412">0412</option>
-                            <option value="58416">0416</option>
-                            <option value="58426">0426</option>
-                        </select>
-                        <input type="text" id="profPhone" class="form-control" placeholder="1234567">
-                    </div>
-                </div>
-                        <div class="form-group">
-                            <label>Dirección</label>
-                            <textarea id="profAddress" class="form-control-custom" rows="2"></textarea>
+                            <input type="text" id="profName" class="form-control-custom" placeholder="Ej. Empresa S.A.">
                         </div>
                         <div class="form-group">
-                            <label>Etiquetas (Tags)</label>
-                            <div class="d-flex gap-2 flex-wrap mb-2">
-                                <span class="tag text-muted border border-dashed" style="background: none; cursor: pointer;">+ Añadir</span>
+                            <label class="form-label">Número de WhatsApp</label>
+                            <div class="input-group">
+                                <select class="form-select" id="profPrefix" style="max-width: 100px; border-right: none;">
+                                    <option value="58414">0414</option>
+                                    <option value="58424">0424</option>
+                                    <option value="58412">0412</option>
+                                    <option value="58416">0416</option>
+                                    <option value="58426">0426</option>
+                                </select>
+                                <input type="text" id="profPhone" class="form-control-custom" style="border-top-left-radius: 0; border-bottom-left-radius: 0;" placeholder="1234567">
                             </div>
                         </div>
                         <div class="form-group">
+                            <label>Dirección</label>
+                            <textarea id="profAddress" class="form-control-custom" rows="2" placeholder="Ubicación física..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Etiquetas (Tags)</label>
+                            <div class="d-flex gap-2 flex-wrap mt-1">
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 rounded-pill" style="cursor: pointer;">+ Añadir Etiqueta</span>
+                            </div>
+                        </div>
+                        <div class="form-group mb-4">
                             <label>Notas Internas</label>
-                            <textarea id="profNotes" class="form-control-custom" rows="3"></textarea>
+                            <textarea id="profNotes" class="form-control-custom" rows="3" placeholder="Información relevante solo para agentes..."></textarea>
                         </div>
                         
-                        <button id="btnSaveProfile" class="btn btn-starfi-primary w-100 mt-2">Guardar Cambios</button>
+                        <button id="btnSaveProfile" class="btn btn-starfi-primary w-100 py-3" style="border-radius: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(232, 91, 20, 0.2);">Guardar Cambios</button>
                     </div>
 
                     <!-- Columna Derecha: Línea de Tiempo (Eventos) -->
                     <div class="profile-timeline-col">
                         <div class="timeline-header">
-                            <i class="fa-solid fa-clock-rotate-left me-2"></i>Historial de Eventos
+                            <i class="fa-solid fa-clock-rotate-left me-2 text-starfi-primary"></i>Historial de Eventos
                         </div>
                         <div class="timeline-feed" id="profileTimeline">
                             <!-- JS Inject Timeline -->
                         </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </aside>
-
-        </div>
+            </div>
     </main>
 
     <!-- JavaScript Local Bootstrap -->
@@ -441,12 +637,6 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
         document.getElementById('toggleSidebar').addEventListener('click', function() {
             document.getElementById('sidebar').classList.toggle('collapsed');
         });
-
-        // Toggle Profile Panel (Fallback or manual)
-        function toggleProfilePanel() {
-            const panel = document.getElementById('profilePanel');
-            panel.classList.toggle('open');
-        }
     </script>
 </body>
 </html>

@@ -9,8 +9,12 @@
 /*
  * VERIFICACION DEL WEBHOOK
 */
+// Cargar variables de entorno
+$envPath = __DIR__ . '/.env';
+$env = file_exists($envPath) ? parse_ini_file($envPath) : [];
+
 //TOKEN QUE QUEREMOS PONER 
-$token = 'PARALELEPIPEDO3312';
+$token = $env['WEBHOOK_VERIFY_TOKEN'] ?? 'PARALELEPIPEDO3312';
 //RETO QUE RECIBIREMOS DE FACEBOOK
 $palabraReto = $_GET['hub_challenge'] ?? '';
 //TOKEN DE VERIFICACION QUE RECIBIREMOS DE FACEBOOK
@@ -27,52 +31,104 @@ if ($token === $tokenVerificacion) {
 //LEEMOS LOS DATOS ENVIADOS POR WHATSAPP
 $respuesta = file_get_contents("php://input");
 
-// Log para debugging (opcional - descomentar si necesitas debug)
-file_put_contents("webhook_log.txt", date('Y-m-d H:i:s') . " - " . $respuesta . "\n", FILE_APPEND);
+// Log para debugging (ahora en la carpeta logs de forma rotativa)
+$log_dir = __DIR__ . '/logs';
+if (!is_dir($log_dir)) mkdir($log_dir, 0777, true);
+file_put_contents($log_dir . "/webhook_" . date('Y-m-d') . ".log", date('Y-m-d H:i:s') . " - " . $respuesta . "\n", FILE_APPEND);
 
 //CONVERTIMOS EL JSON EN ARRAY DE PHP
-$respuesta = json_decode($respuesta, true);
+$respuesta_array = json_decode($respuesta, true);
+
+// Incluir conexión temprana para la auditoría
+require_once('config/database.php');
+$con = getDbConnection();
+
+if ($con) {
+    $payload_esc = mysqli_real_escape_string($con, $respuesta);
+    mysqli_query($con, "INSERT INTO auditoria_webhooks (payload_json) VALUES ('$payload_esc')");
+}
 
 // Verificar que hay datos
-if (!$respuesta || !isset($respuesta['entry'][0]['changes'][0]['value'])) {
+if (!$respuesta_array || !isset($respuesta_array['entry'][0]['changes'][0]['value'])) {
     exit;
 }
 
-$value = $respuesta['entry'][0]['changes'][0]['value'];
+$value = $respuesta_array['entry'][0]['changes'][0]['value'];
+
+// NUEVO: Extraer el número de teléfono que recibió el mensaje (telefono_meta)
+$telefonoReceptorID = $value['metadata']['phone_number_id'] ?? null;
+$displayPhoneNumber = $value['metadata']['display_phone_number'] ?? null;
+
+// GESTIÓN DE ESTADOS (Doble check: enviado, entregado, leído)
+if (isset($value['statuses'][0])) {
+    $estado = $value['statuses'][0]['status']; // sent, delivered, read, failed
+    $id_mensaje_meta_status = $value['statuses'][0]['id'];
+    
+    $estado_sql = null;
+    if ($estado == 'sent') $estado_sql = 'ENVIADO';
+    else if ($estado == 'delivered') $estado_sql = 'ENTREGADO';
+    else if ($estado == 'read') $estado_sql = 'LEIDO';
+    else if ($estado == 'failed') $estado_sql = 'FALLIDO';
+    
+    if ($con && $estado_sql) {
+        $id_msg_esc = mysqli_real_escape_string($con, $id_mensaje_meta_status);
+        mysqli_query($con, "UPDATE mensajes_y_eventos SET estado_envio = '$estado_sql' WHERE id_mensaje_meta = '$id_msg_esc'");
+    }
+    exit;
+}
 
 // Verificar que hay mensajes
 if (!isset($value['messages'][0])) {
     exit;
 }
 
-//EXTRAEMOS EL MENSAJE DEL ARRAY
-$mensaje = $value['messages'][0]['text']['body'] ?? null;
-//EXTRAEMOS EL TELEFONO DEL CLIENTE
-$telefonoCliente = $value['messages'][0]['from'] ?? null;
-//EXTRAEMOS EL ID DE WHATSAPP DEL ARRAY
-$id = $value['messages'][0]['id'] ?? null;
-//EXTRAEMOS EL TIEMPO DE WHATSAPP DEL ARRAY
-$times = $value['messages'][0]['timestamp'] ?? time();
-//EXTRAEMOS EL NOMBRE DE LA PERSONA QUE TENGA REGISTRADO EN EL PERFIL 
-$perfil = $value['contacts'][0]['profile']['name'] ?? 'Usuario';
+$msg = $value['messages'][0];
+$telefonoCliente = $msg['from'] ?? null;
+$id_mensaje_meta = $msg['id'] ?? null;
+$times = $msg['timestamp'] ?? time();
+$perfil = $respuesta_array['entry'][0]['changes'][0]['value']['contacts'][0]['profile']['name'] ?? 'Usuario';
 
-// NUEVO: Extraer el número de teléfono que recibió el mensaje (telefono_meta)
-$telefonoReceptorID = $value['metadata']['phone_number_id'] ?? null;
-$displayPhoneNumber = $value['metadata']['display_phone_number'] ?? null;
+$tipo_mensaje = $msg['type'] ?? 'text';
+$mensaje_texto = null;
+$tipo_bd = 'TEXTO';
+$url_archivo = null;
+$mime_type = null;
+
+if ($tipo_mensaje === 'text') {
+    $mensaje_texto = $msg['text']['body'] ?? '';
+} else if ($tipo_mensaje === 'image') {
+    $tipo_bd = 'IMAGEN';
+    $mensaje_texto = $msg['image']['caption'] ?? 'Imagen recibida';
+    $url_archivo = $msg['image']['id']; 
+    $mime_type = $msg['image']['mime_type'] ?? 'image/jpeg';
+} else if ($tipo_mensaje === 'document') {
+    $tipo_bd = 'DOCUMENTO';
+    $mensaje_texto = $msg['document']['caption'] ?? $msg['document']['filename'] ?? 'Documento recibido';
+    $url_archivo = $msg['document']['id']; 
+    $mime_type = $msg['document']['mime_type'] ?? 'application/pdf';
+} else if ($tipo_mensaje === 'audio') {
+    $tipo_bd = 'EVENTO_SISTEMA'; 
+    $mensaje_texto = 'Audio recibido';
+    $url_archivo = $msg['audio']['id']; 
+    $mime_type = $msg['audio']['mime_type'] ?? 'audio/ogg';
+} else if ($tipo_mensaje === 'interactive') {
+    $tipo_interactivo = $msg['interactive']['type'] ?? '';
+    if ($tipo_interactivo === 'button_reply') {
+        $mensaje_texto = $msg['interactive']['button_reply']['title'] ?? '';
+    } else if ($tipo_interactivo === 'list_reply') {
+        $mensaje_texto = $msg['interactive']['list_reply']['title'] ?? '';
+    }
+}
 
 //SI HAY UN MENSAJE
-if($mensaje != null && $telefonoCliente != null){
-    save_mensaje($id, $telefonoCliente, $times, $mensaje, $perfil, $telefonoReceptorID, $displayPhoneNumber);
+if($telefonoCliente != null){
+    save_mensaje($con, $id_mensaje_meta, $telefonoCliente, $times, $mensaje_texto, $perfil, $telefonoReceptorID, $displayPhoneNumber, $tipo_bd, $url_archivo, $mime_type);
 }
 
 /**
  * Guardar mensaje recibido y gestionar conversación
  */
-function save_mensaje($id_mensaje, $telefono_cliente, $timestamp, $cuerpo_mensaje, $perfil, $telefono_receptor_id, $display_phone) {
-    
-    // Incluir conexión a la base de datos 
-    require_once('config/database.php');
-    $con = getDbConnection();
+function save_mensaje($con, $id_mensaje_meta, $telefono_cliente, $timestamp, $cuerpo_mensaje, $perfil, $telefono_receptor_id, $display_phone, $tipo_bd = 'TEXTO', $url_archivo = null, $mime_type = null) {
     
     if(!$con) {
         error_log("Error de conexión a BD en webhook");
@@ -155,7 +211,12 @@ function save_mensaje($id_mensaje, $telefono_cliente, $timestamp, $cuerpo_mensaj
     }
     
     // 4. INSERTAR MENSAJE RECIBIDO
-    $query_msg = "INSERT INTO mensajes_y_eventos (id_conversacion, tipo, origen, contenido) VALUES ($id_conversacion, 'TEXTO', 'CLIENTE', '$cuerpo_mensaje')";
+    $url_archivo_esc = $url_archivo ? "'" . mysqli_real_escape_string($con, $url_archivo) . "'" : "NULL";
+    $mime_type_esc = $mime_type ? "'" . mysqli_real_escape_string($con, $mime_type) . "'" : "NULL";
+    $id_msg_meta_esc = $id_mensaje_meta ? "'" . mysqli_real_escape_string($con, $id_mensaje_meta) . "'" : "NULL";
+    
+    $query_msg = "INSERT INTO mensajes_y_eventos (id_conversacion, id_mensaje_meta, tipo, origen, contenido, url_archivo, mime_type) 
+                  VALUES ($id_conversacion, $id_msg_meta_esc, '$tipo_bd', 'CLIENTE', '$cuerpo_mensaje', $url_archivo_esc, $mime_type_esc)";
     if (!mysqli_query($con, $query_msg)) {
         error_log("Error al guardar mensaje en la bd: " . mysqli_error($con));
     }

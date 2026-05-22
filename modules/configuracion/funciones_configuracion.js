@@ -115,13 +115,13 @@ function loadSedes() {
                     let badge = s.webhook === 'CONECTADO' ? '<span class="badge bg-success">Conectado</span>' : 
                                 (s.webhook === 'REQUIERE_VERIFICACION' ? '<span class="badge bg-warning text-dark">Pendiente</span>' : '<span class="badge bg-secondary">Sin Token</span>');
                     let tr = `<tr>
-                        <td class="fw-bold">${s.sede}</td>
+                        <td class="fw-bold" style="padding-left: 24px;">${s.sede}</td>
                         <td class="text-muted">${s.numero || '---'}</td>
                         <td class="text-muted" style="font-family: monospace;">${s.app_id || '---'}</td>
                         <td>${badge}</td>
-                        <td>
+                        <td style="text-align: right; padding-right: 24px;">
                             <button class="action-btn" title="Editar"><i class="fa-solid fa-pen"></i></button>
-                            <button class="action-btn danger" title="Desactivar"><i class="fa-solid fa-power-off"></i></button>
+                            <button class="action-btn danger" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>`;
                     tbody.append(tr);
@@ -148,18 +148,36 @@ function loadUsers() {
                                   (u.rol === 'SUPERVISOR' ? '<span class="badge bg-primary">Supervisor</span>' : '<span class="badge bg-secondary">Agente</span>');
                     let sedeTxt = u.sede || 'Global';
                     let tr = `<tr>
-                        <td class="fw-bold"><i class="fa-solid fa-user-circle text-muted me-2"></i> ${u.nombre}</td>
+                        <td class="fw-bold" style="padding-left: 24px;"><i class="fa-solid fa-user-circle text-muted me-2"></i> ${u.nombre}</td>
                         <td>${rolBadge}</td>
                         <td class="text-muted">${sedeTxt}</td>
                         <td>${u.limite} chats simultáneos</td>
-                        <td>
+                        <td style="text-align: right; padding-right: 24px;">
                             <button class="action-btn" title="Editar Permisos"><i class="fa-solid fa-shield-halved"></i></button>
-                            <button class="action-btn danger" title="Suspender"><i class="fa-solid fa-ban"></i></button>
+                            <button class="action-btn danger" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>`;
                     tbody.append(tr);
                 });
             }
+        }
+    });
+}
+
+function confirmLogout(event) {
+    event.preventDefault();
+    Swal.fire({
+        title: '¿Cerrar Sesión?',
+        text: "Tendrás que volver a ingresar tus credenciales.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#E85B14',
+        cancelButtonColor: '#94A3B8',
+        confirmButtonText: 'Sí, salir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '/starfi_crm/logout.php';
         }
     });
 }
