@@ -174,12 +174,15 @@ function save_mensaje($con, $id_mensaje_meta, $telefono_cliente, $timestamp, $cu
     
     // 2. BUSCAR O CREAR CLIENTE
     $id_cliente = null;
-    $query_cliente = "SELECT id FROM clientes_contactos WHERE numero_whatsapp = '$telefono_cliente'";
+    $nombre_db = null;
+    $query_cliente = "SELECT id, nombre FROM clientes_contactos WHERE numero_whatsapp = '$telefono_cliente'";
     $res_cliente = mysqli_query($con, $query_cliente);
     if ($res_cliente && mysqli_num_rows($res_cliente) > 0) {
-        $id_cliente = mysqli_fetch_assoc($res_cliente)['id'];
+        $row_cliente = mysqli_fetch_assoc($res_cliente);
+        $id_cliente = $row_cliente['id'];
+        $nombre_db = $row_cliente['nombre'];
     } else {
-        $insert_cliente = "INSERT INTO clientes_contactos (id_empresa, numero_whatsapp, nombre) VALUES ($id_empresa, '$telefono_cliente', '$perfil')";
+        $insert_cliente = "INSERT INTO clientes_contactos (id_empresa, numero_whatsapp, nombre) VALUES ($id_empresa, '$telefono_cliente', NULL)";
         if (mysqli_query($con, $insert_cliente)) {
             $id_cliente = mysqli_insert_id($con);
         }
@@ -192,22 +195,43 @@ function save_mensaje($con, $id_mensaje_meta, $telefono_cliente, $timestamp, $cu
     
     // 3. BUSCAR O CREAR CONVERSACION
     $id_conversacion = null;
-    $query_conv = "SELECT id FROM conversaciones WHERE id_cliente = $id_cliente AND estado NOT IN ('CERRADO', 'RESUELTO') LIMIT 1";
+    $estado_conv = null;
+    $nueva_conversacion = false;
+    $query_conv = "SELECT id, estado FROM conversaciones WHERE id_cliente = $id_cliente AND estado NOT IN ('CERRADO', 'RESUELTO') LIMIT 1";
     $res_conv = mysqli_query($con, $query_conv);
     if ($res_conv && mysqli_num_rows($res_conv) > 0) {
-        $id_conversacion = mysqli_fetch_assoc($res_conv)['id'];
+        $row_conv = mysqli_fetch_assoc($res_conv);
+        $id_conversacion = $row_conv['id'];
+        $estado_conv = $row_conv['estado'];
         // Incrementar mensajes no leídos
         mysqli_query($con, "UPDATE conversaciones SET mensajes_no_leidos = IFNULL(mensajes_no_leidos, 0) + 1 WHERE id = $id_conversacion");
     } else {
-        $insert_conv = "INSERT INTO conversaciones (id_linea, id_cliente, estado, mensajes_no_leidos) VALUES ($id_linea, $id_cliente, 'ESPERA_ASIGNACION', 1)";
+        $estado_inicial = (!empty($nombre_db)) ? 'ESPERA_ASIGNACION' : 'BOT_RECOPILANDO';
+        $insert_conv = "INSERT INTO conversaciones (id_linea, id_cliente, estado, mensajes_no_leidos) VALUES ($id_linea, $id_cliente, '$estado_inicial', 1)";
         if (mysqli_query($con, $insert_conv)) {
             $id_conversacion = mysqli_insert_id($con);
+            $estado_conv = $estado_inicial;
+            $nueva_conversacion = true;
         }
     }
     
     if (!$id_conversacion) {
         error_log("No se pudo obtener ni crear la conversación en el webhook.");
         return;
+    }
+
+    // LÓGICA DE BOT_RECOPILANDO
+    if (!$nueva_conversacion && $estado_conv === 'BOT_RECOPILANDO' && $tipo_bd === 'TEXTO') {
+        // Actualizar el nombre del cliente con el mensaje enviado
+        $nombre_ingresado = trim($cuerpo_mensaje);
+        $nombre_esc = mysqli_real_escape_string($con, $nombre_ingresado);
+        mysqli_query($con, "UPDATE clientes_contactos SET nombre = '$nombre_esc' WHERE id = $id_cliente");
+        $nombre_db = $nombre_ingresado;
+        
+        // Pasar estado a ESPERA_ASIGNACION
+        mysqli_query($con, "UPDATE conversaciones SET estado = 'ESPERA_ASIGNACION' WHERE id = $id_conversacion");
+        $estado_conv = 'ESPERA_ASIGNACION';
+        $nueva_conversacion = true; // Forzamos el envío del saludo y operadores
     }
     
     // 4. INSERTAR MENSAJE RECIBIDO
@@ -226,24 +250,37 @@ function save_mensaje($con, $id_mensaje_meta, $telefono_cliente, $timestamp, $cu
         $q_token = mysqli_query($con, "SELECT meta_app_id, meta_token, id_sede FROM lineas_whatsapp WHERE id = $id_linea");
         if($q_token && mysqli_num_rows($q_token) > 0) {
             $linea_info = mysqli_fetch_assoc($q_token);
-            enviar_respuesta_automatica($con, $linea_info, $telefono_cliente, $perfil, $id_conversacion);
+            
+            if ($estado_conv === 'BOT_RECOPILANDO') {
+                // Pedir nombre si es la primera vez
+                if ($nueva_conversacion) {
+                    $mensaje_bot = "Hola, buenos días. ¿Cuál es tu nombre, por favor me indicas?";
+                    enviar_mensaje_texto_api($con, $linea_info, $telefono_cliente, $mensaje_bot, $id_conversacion);
+                }
+            } else if ($nueva_conversacion && $estado_conv === 'ESPERA_ASIGNACION') {
+                // Saludar por nombre y mandar operadores
+                $nombre_saludo = !empty($nombre_db) ? $nombre_db : $perfil;
+                $mensaje_bot = "Hola $nombre_saludo, ¿en qué te puedo ayudar? Te comunicaremos con uno de nuestros operadores.";
+                enviar_mensaje_texto_api($con, $linea_info, $telefono_cliente, $mensaje_bot, $id_conversacion);
+                
+                $id_sede = $linea_info['id_sede'] ?? null;
+                enviar_contactos_asesores($linea_info['meta_app_id'], $linea_info['meta_token'], $telefono_cliente, $id_sede, $con, $id_conversacion);
+            }
         }
     }
 }
 
 /**
- * Enviar respuesta automática indicando que este canal no es para atención directa
+ * Enviar mensaje de texto automático vía Meta API
  */
-function enviar_respuesta_automatica($con, $linea_info, $telefono_cliente, $perfil, $id_conversacion) {
+function enviar_mensaje_texto_api($con, $linea_info, $telefono_cliente, $mensaje_texto, $id_conversacion) {
     
     $telefonoID = $linea_info['meta_app_id'];
     $token_seguro = $linea_info['meta_token'];
     
     if(empty($telefonoID) || empty($token_seguro)) {
-        return; // No se puede enviar sin token/id
+        return;
     }
-    
-    $enviado = 'Estimado/a ' . $perfil . ': Este canal no se encuentra habilitado para atención directa. Para recibir asistencia personalizada, le invitamos a contactar directamente a uno de nuestros asesores:';
     
     // URL para enviar mensaje
     $url = 'https://graph.facebook.com/v23.0/' . $telefonoID . '/messages';
@@ -256,7 +293,7 @@ function enviar_respuesta_automatica($con, $linea_info, $telefono_cliente, $perf
         'type' => 'text',
         'text' => [
             'preview_url' => false,
-            'body' => $enviado
+            'body' => $mensaje_texto
         ]
     ]);
     
@@ -278,15 +315,12 @@ function enviar_respuesta_automatica($con, $linea_info, $telefono_cliente, $perf
     $status_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
     curl_close($curl);
     
-    // Guardar mensaje enviado en BD (Mismo formato de starfi_crm)
+    // Guardar mensaje enviado en BD
     if ($status_code == 200) {
-        $enviado_esc = mysqli_real_escape_string($con, $enviado);
+        $enviado_esc = mysqli_real_escape_string($con, $mensaje_texto);
         mysqli_query($con, "INSERT INTO mensajes_y_eventos (id_conversacion, tipo, origen, contenido) VALUES ($id_conversacion, 'TEXTO', 'BOT', '$enviado_esc')");
-        
-        $id_sede = $linea_info['id_sede'] ?? null;
-        enviar_contactos_asesores($telefonoID, $token_seguro, $telefono_cliente, $id_sede, $con, $id_conversacion);
     } else {
-        error_log("Error al enviar respuesta automatica: " . $response);
+        error_log("Error al enviar mensaje automatico: " . $response);
     }
 }
 
