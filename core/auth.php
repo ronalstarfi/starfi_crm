@@ -55,6 +55,17 @@ function getAgenteInfo() {
     $con = getDbConnection();
     $id = intval($_SESSION['agente_id']);
     
+    if ($id === 1) {
+        return [
+            'id' => 1,
+            'nombre_completo' => 'Acceso Master',
+            'email' => 'master',
+            'rol' => 'ADMIN',
+            'id_sede' => 0,
+            'limite_chats_simultaneos' => 999
+        ];
+    }
+    
     // Obtener los datos frescos de la BD para inyectarlos en la UI (Ej. Nombre, Foto, Límites)
     $stmt = $con->prepare("SELECT id, nombre_completo, email, rol, id_sede, limite_chats_simultaneos FROM usuarios_agentes WHERE id = ? AND estado = 'ACTIVO'");
     if ($stmt) {

@@ -24,14 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // AQUI IRIÁ LA VALIDACIÓN REAL CON PASSWORD_VERIFY Y SQL.
     // Como la BD está vacía actualmente, crearemos un "Backdoor" temporal para pruebas UI.
-    if ($email === 'admin@starfi.com' && $password === '12345') {
+    if (strtolower($email) === 'master' && $password === '1234') {
         $_SESSION['agente_id'] = 1; // ID Falso
-        $_SESSION['nombre_completo'] = "Administrador Root";
+        $_SESSION['nombre_completo'] = "Acceso Master";
         $_SESSION['last_activity'] = time();
         header("Location: index.php");
         exit();
     } else {
-        $error = "Credenciales incorrectas (Usa: admin@starfi.com / 12345)";
+        $error = "Credenciales incorrectas (Usa: master / 1234)";
     }
 }
 ?>
@@ -108,8 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" action="">
             <div class="mb-3">
-                <label class="login-label">Correo Electrónico</label>
-                <input type="email" name="email" class="form-control-custom" placeholder="ejemplo@empresa.com" required>
+                <label class="login-label">Usuario</label>
+                <input type="text" name="email" class="form-control-custom" placeholder="Usuario master" required>
             </div>
             <div class="mb-4">
                 <label class="login-label">Contraseña</label>
