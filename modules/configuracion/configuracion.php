@@ -217,10 +217,14 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
                     <button class="nav-link active fw-bold" id="sedes-tab" data-bs-toggle="tab" data-bs-target="#sedes" type="button" role="tab">Gestión de Sedes</button>
                 </li>
                 <li class="nav-item" role="presentation">
+                <li class="nav-item" role="presentation">
                     <button class="nav-link fw-bold" id="apis-tab" data-bs-toggle="tab" data-bs-target="#apis" type="button" role="tab">Gestión de APIs WhatsApp</button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link fw-bold" id="gema-tab" data-bs-toggle="tab" data-bs-target="#gema" type="button" role="tab"><i class="fa-solid fa-wand-magic-sparkles text-starfi-primary me-1"></i> Agente IA</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold" id="pruebas-tab" data-bs-toggle="tab" data-bs-target="#pruebas" type="button" role="tab"><i class="fa-solid fa-flask text-danger me-1"></i> Pruebas y Diagnóstico</button>
                 </li>
             </ul>
 
@@ -427,6 +431,94 @@ $nombre_agente = $agente['nombre_completo'] ?? 'Usuario';
                                                 </li>
                                             </ul>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PRUEBAS Y DIAGNÓSTICO -->
+                <div class="tab-pane fade" id="pruebas" role="tabpanel">
+                    <div class="config-card" style="padding: 24px;">
+                        <h4 class="config-card-title"><i class="fa-solid fa-flask text-danger me-2"></i> Módulo de Pruebas y Diagnóstico</h4>
+                        <p class="text-muted" style="font-size: 0.9rem;">Ejecuta pruebas en tiempo real y diagnostica el estado del sistema.</p>
+
+                        <div class="row g-4 mt-2">
+                            <!-- Card 1: Diagnóstico de Sistema -->
+                            <div class="col-md-6">
+                                <div class="card h-100 shadow-sm border-0" style="border-radius: 12px; border: 1px solid #E2E8F0 !important;">
+                                    <div class="card-body p-4">
+                                        <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-circle-check text-success me-2"></i> Auto-Diagnóstico de Base de Datos y Archivos</h5>
+                                        <p class="text-muted small mb-4">Verifica que las tablas críticas existan en la base de datos, que los controladores estén en su lugar y comprueba la conectividad del sistema.</p>
+                                        <button class="btn btn-outline-success fw-bold" onclick="ejecutarDiagnostico()" style="border-radius: 8px;">
+                                            <i class="fa-solid fa-circle-play me-2"></i> Ejecutar Diagnóstico
+                                        </button>
+                                        <div id="resultadoDiagnostico" class="mt-3"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Simulador de Mensaje Entrante -->
+                            <div class="col-md-6">
+                                <div class="card h-100 shadow-sm border-0" style="border-radius: 12px; border: 1px solid #E2E8F0 !important;">
+                                    <div class="card-body p-4">
+                                        <h5 class="fw-bold text-dark mb-3"><i class="fa-brands fa-whatsapp text-primary me-2"></i> Simular Mensaje Entrante (Bandeja)</h5>
+                                        <p class="text-muted small mb-4">Simula que un cliente ha enviado un mensaje a tu webhook de WhatsApp. Esto te permite verificar la recepción y visualización instantánea en la Bandeja Omnicanal.</p>
+                                        <button class="btn btn-outline-primary fw-bold" onclick="ejecutarSimulador()" style="border-radius: 8px;">
+                                            <i class="fa-solid fa-paper-plane me-2"></i> Simular Recepción de Mensaje
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 3: Formulario de Envío de Notificación de Prueba (Salida) -->
+                            <div class="col-12">
+                                <div class="card shadow-sm border-0" style="border-radius: 12px; border: 1px solid #E2E8F0 !important;">
+                                    <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                                        <h5 class="fw-bold text-dark mb-1"><i class="fa-solid fa-paper-plane text-warning me-2"></i> Enviar Notificación Transaccional de Prueba (Salida)</h5>
+                                        <p class="text-muted small">Esta prueba envía una plantilla real de confirmación de compra usando la API externa configurada en el sistema.</p>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <form id="formNotifPrueba">
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">Teléfono Destino *</label>
+                                                    <input type="text" class="form-control form-control-premium" id="notif_telefono" required placeholder="Ej: 584241660944" value="584241660944">
+                                                    <small class="text-muted">Código de país sin el signo '+' ni espacios (ej: 584241660944).</small>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">Nombre Cliente *</label>
+                                                    <input type="text" class="form-control form-control-premium" id="notif_cliente" required value="Cliente de Prueba">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">Monto Total *</label>
+                                                    <input type="text" class="form-control form-control-premium" id="notif_monto" required value="250.00">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">Correlativo Factura *</label>
+                                                    <input type="text" class="form-control form-control-premium" id="notif_correlativo" required value="TEST-99999">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">Asesor de Ventas *</label>
+                                                    <input type="text" class="form-control form-control-premium" id="notif_asesor" required value="Asesor Test">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">Teléfono Asesor *</label>
+                                                    <input type="text" class="form-control form-control-premium" id="notif_tel_asesor" required value="584120000000">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-muted fw-bold text-uppercase" style="font-size: 0.75rem;">Nombre Empresa *</label>
+                                                    <input type="text" class="form-control form-control-premium" id="notif_empresa" required value="STARFI CRM">
+                                                </div>
+                                            </div>
+                                            <div class="mt-4">
+                                                <button type="button" class="btn btn-starfi-primary fw-bold" onclick="enviarNotificacionPrueba()" style="border-radius: 8px;">
+                                                    <i class="fa-solid fa-paper-plane me-2"></i> Enviar Notificación de Prueba
+                                                </button>
+                                            </div>
+                                        </form>
+                                        <div id="resultadoNotifPrueba" class="mt-3"></div>
                                     </div>
                                 </div>
                             </div>

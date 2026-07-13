@@ -606,3 +606,153 @@ function confirmLogout(event) {
         }
     });
 }
+
+function ejecutarDiagnostico() {
+    const resDiv = $('#resultadoDiagnostico');
+    resDiv.html('<div class="alert alert-info py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i> Ejecutando auto-diagnóstico...</div>');
+
+    $.ajax({
+        url: 'back_configuracion.php',
+        type: 'POST',
+        dataType: 'json',
+        data: { action: 'run_diagnostico' },
+        success: function(res) {
+            if (res.status === 'success') {
+                const data = res.data;
+                let html = '<div class="card bg-light border-0 p-3 mt-2" style="border-radius: 8px;">';
+                
+                // Conexión BD
+                const dbStatus = data.database.status === 'ok' 
+                    ? '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i> Conectado</span>' 
+                    : '<span class="text-danger"><i class="fa-solid fa-circle-xmark me-1"></i> Error</span>';
+                html += `<div class="mb-2"><strong>Base de Datos:</strong> ${dbStatus} - ${data.database.message}</div>`;
+                
+                // Líneas activas
+                const lineasStatus = data.lineas_activas.status === 'ok' 
+                    ? '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i> OK</span>' 
+                    : '<span class="text-warning"><i class="fa-solid fa-triangle-exclamation me-1"></i> Advertencia</span>';
+                html += `<div class="mb-2"><strong>Líneas Activas:</strong> ${lineasStatus} - ${data.lineas_activas.message}</div>`;
+                
+                // Tablas
+                html += '<div class="mb-2"><strong>Estructura de Tablas:</strong><ul class="list-unstyled ps-3 mt-1 row">';
+                for (const [tabla, existe] of Object.entries(data.tables.data)) {
+                    const icono = existe 
+                        ? '<i class="fa-solid fa-check text-success me-1"></i>' 
+                        : '<i class="fa-solid fa-xmark text-danger me-1"></i>';
+                    const label = existe ? `<code>${tabla}</code>` : `<code class="text-danger">${tabla} (Falta)</code>`;
+                    html += `<li class="col-6 mb-1">${icono} ${label}</li>`;
+                }
+                html += '</ul></div>';
+
+                // Archivos
+                html += '<div class="mb-0"><strong>Archivos de Control:</strong><ul class="list-unstyled ps-3 mt-1 row">';
+                for (const [archivo, existe] of Object.entries(data.files.data)) {
+                    const icono = existe 
+                        ? '<i class="fa-solid fa-check text-success me-1"></i>' 
+                        : '<i class="fa-solid fa-xmark text-danger me-1"></i>';
+                    const label = existe ? `<span>${archivo}</span>` : `<span class="text-danger">${archivo} (No encontrado)</span>`;
+                    html += `<li class="col-12 mb-1">${icono} ${label}</li>`;
+                }
+                html += '</ul></div>';
+
+                html += '</div>';
+                resDiv.html(html);
+            } else {
+                resDiv.html(`<div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i> Error: ${res.message}</div>`);
+            }
+        },
+        error: function() {
+            resDiv.html('<div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i> Error de comunicación con el servidor.</div>');
+        }
+    });
+}
+
+function ejecutarSimulador() {
+    Swal.fire({
+        title: 'Ejecutando Simulación',
+        text: 'Enviando payload de prueba al Webhook...',
+        icon: 'info',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    $.ajax({
+        url: 'back_configuracion.php',
+        type: 'POST',
+        dataType: 'json',
+        data: { action: 'run_simulacion_entrante' },
+        success: function(res) {
+            if (res.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Mensaje Simulado!',
+                    text: res.message,
+                    confirmButtonColor: '#E85B14'
+                });
+            } else {
+                Swal.fire('Error', res.message, 'error');
+            }
+        },
+        error: function() {
+            Swal.fire('Error', 'No se pudo conectar al simulador.', 'error');
+        }
+    });
+}
+
+function enviarNotificacionPrueba() {
+    const form = $('#formNotifPrueba')[0];
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const resDiv = $('#resultadoNotifPrueba');
+    resDiv.html('<div class="alert alert-info py-2"><i class="fa-solid fa-spinner fa-spin me-2"></i> Procesando y enviando notificación a Meta...</div>');
+
+    const data = {
+        action: 'run_envio_transaccional',
+        telefono: $('#notif_telefono').val().trim(),
+        nombre_cliente: $('#notif_cliente').val().trim(),
+        monto_total: $('#notif_monto').val().trim(),
+        correlativo: $('#notif_correlativo').val().trim(),
+        asesor_ventas: $('#notif_asesor').val().trim(),
+        telefono_asesor: $('#notif_tel_asesor').val().trim(),
+        nombre_empresa: $('#notif_empresa').val().trim()
+    };
+
+    $.ajax({
+        url: 'back_configuracion.php',
+        type: 'POST',
+        dataType: 'json',
+        data: data,
+        success: function(res) {
+            if (res.status === 'success') {
+                resDiv.html(`
+                    <div class="alert alert-success py-3">
+                        <h6 class="fw-bold mb-2"><i class="fa-solid fa-check-circle me-1"></i> ${res.message}</h6>
+                        <small class="d-block mb-1"><strong>Registro en Base de Datos:</strong> ${res.details.registro_bd}</small>
+                        <small class="d-block mb-2"><strong>ID Mensaje Meta:</strong> ${res.details.meta_response.messages ? res.details.meta_response.messages[0].id : 'N/A'}</small>
+                        <pre class="bg-dark text-light p-2 rounded small mb-0" style="max-height: 200px; overflow-y: auto;">${JSON.stringify(res.details, null, 2)}</pre>
+                    </div>
+                `);
+            } else {
+                let errorDetails = '';
+                if (res.details) {
+                    errorDetails = `<pre class="bg-dark text-light p-2 rounded small mt-2 mb-0" style="max-height: 200px; overflow-y: auto;">${JSON.stringify(res.details, null, 2)}</pre>`;
+                }
+                resDiv.html(`
+                    <div class="alert alert-danger py-3">
+                        <h6 class="fw-bold mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> Error en Envío</h6>
+                        <p class="small mb-1">${res.message}</p>
+                        ${errorDetails}
+                    </div>
+                `);
+            }
+        },
+        error: function() {
+            resDiv.html('<div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i> Error de conexión con el servidor.</div>');
+        }
+    });
+}

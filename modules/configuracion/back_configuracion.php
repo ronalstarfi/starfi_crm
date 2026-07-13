@@ -52,6 +52,71 @@ switch ($action) {
             $stmt->bind_param("isssssssssss", $id_empresa, $razon_social, $rif, $telefono, $email, $direccion, $ciudad, $estado_loc, $codigo_postal, $tipo_sede, $observaciones, $estado_sede);
             
             if ($stmt->execute()) {
+                $target_id = $stmt->insert_id;
+                
+                // 1. Sincronizar lineas_whatsapp en el CRM local
+                $stmt_w = $con->prepare("UPDATE lineas_whatsapp SET estado = ? WHERE id_sede = ?");
+                if ($stmt_w) {
+                    $stmt_w->bind_param("si", $estado_sede, $target_id);
+                    $stmt_w->execute();
+                    $stmt_w->close();
+                }
+                
+                // 2. Sincronizar con el sistema de ventas/core externo
+                $legacy_id = ($target_id == 23) ? 23 : ($target_id - 2);
+                $legacy_status = ($estado_sede === 'ACTIVO') ? '[ACTIVO]' : '[INACTIVO]';
+                $activo_val = ($estado_sede === 'ACTIVO') ? 1 : 0;
+                
+                $con_core = getExternalDbConnection('core');
+                if ($con_core) {
+                    $stmt_core = $con_core->prepare("UPDATE sede SET status = ? WHERE id = ?");
+                    if ($stmt_core) {
+                        $stmt_core->bind_param("si", $legacy_status, $legacy_id);
+                        $stmt_core->execute();
+                        $stmt_core->close();
+                    }
+                    mysqli_close($con_core);
+                }
+                
+                // Obtener datos locales del api de whatsapp para sincronizar
+                $q_local_api = $con->query("SELECT numero_telefono, meta_telefono_id, meta_token FROM lineas_whatsapp WHERE id_sede = $target_id LIMIT 1");
+                $local_api = ($q_local_api && $q_local_api->num_rows > 0) ? $q_local_api->fetch_assoc() : null;
+
+                $con_ventas = getExternalDbConnection('ventas');
+                if ($con_ventas) {
+                    if ($local_api) {
+                        $meta_token = $local_api['meta_token'];
+                        $meta_telefono_id = $local_api['meta_telefono_id'];
+                        $num_tel = $local_api['numero_telefono'];
+
+                        $check = mysqli_query($con_ventas, "SELECT id FROM config_api_wsap WHERE id_sede = '$legacy_id'");
+                        if (mysqli_num_rows($check) > 0) {
+                            $stmt_ventas = $con_ventas->prepare("UPDATE config_api_wsap SET token = ?, instance_id = ?, phone_number = ?, activo = ? WHERE id_sede = ?");
+                            if ($stmt_ventas) {
+                                $stmt_ventas->bind_param("sssii", $meta_token, $meta_telefono_id, $num_tel, $activo_val, $legacy_id);
+                                $stmt_ventas->execute();
+                                $stmt_ventas->close();
+                            }
+                        } else {
+                            $default_api_url = 'https://api.starficloud.com/api_starfi_wsap/api_enviar_plantilla_meta.php';
+                            $stmt_ventas = $con_ventas->prepare("INSERT INTO config_api_wsap (id_sede, api_url, token, instance_id, phone_number, activo) VALUES (?, ?, ?, ?, ?, ?)");
+                            if ($stmt_ventas) {
+                                $stmt_ventas->bind_param("issssi", $legacy_id, $default_api_url, $meta_token, $meta_telefono_id, $num_tel, $activo_val);
+                                $stmt_ventas->execute();
+                                $stmt_ventas->close();
+                            }
+                        }
+                    } else {
+                        $stmt_ventas = $con_ventas->prepare("UPDATE config_api_wsap SET activo = ? WHERE id_sede = ?");
+                        if ($stmt_ventas) {
+                            $stmt_ventas->bind_param("ii", $activo_val, $legacy_id);
+                            $stmt_ventas->execute();
+                            $stmt_ventas->close();
+                        }
+                    }
+                    mysqli_close($con_ventas);
+                }
+                
                 echo json_encode(['status' => 'success', 'message' => 'Sede creada correctamente.']);
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Error al crear la sede.']);
@@ -61,6 +126,71 @@ switch ($action) {
             $stmt->bind_param("sssssssssssii", $razon_social, $rif, $telefono, $email, $direccion, $ciudad, $estado_loc, $codigo_postal, $tipo_sede, $observaciones, $estado_sede, $id_sede, $id_empresa);
             
             if ($stmt->execute()) {
+                $target_id = $id_sede;
+                
+                // 1. Sincronizar lineas_whatsapp en el CRM local
+                $stmt_w = $con->prepare("UPDATE lineas_whatsapp SET estado = ? WHERE id_sede = ?");
+                if ($stmt_w) {
+                    $stmt_w->bind_param("si", $estado_sede, $target_id);
+                    $stmt_w->execute();
+                    $stmt_w->close();
+                }
+                
+                // 2. Sincronizar con el sistema de ventas/core externo
+                $legacy_id = ($target_id == 23) ? 23 : ($target_id - 2);
+                $legacy_status = ($estado_sede === 'ACTIVO') ? '[ACTIVO]' : '[INACTIVO]';
+                $activo_val = ($estado_sede === 'ACTIVO') ? 1 : 0;
+                
+                $con_core = getExternalDbConnection('core');
+                if ($con_core) {
+                    $stmt_core = $con_core->prepare("UPDATE sede SET status = ? WHERE id = ?");
+                    if ($stmt_core) {
+                        $stmt_core->bind_param("si", $legacy_status, $legacy_id);
+                        $stmt_core->execute();
+                        $stmt_core->close();
+                    }
+                    mysqli_close($con_core);
+                }
+                
+                // Obtener datos locales del api de whatsapp para sincronizar
+                $q_local_api = $con->query("SELECT numero_telefono, meta_telefono_id, meta_token FROM lineas_whatsapp WHERE id_sede = $target_id LIMIT 1");
+                $local_api = ($q_local_api && $q_local_api->num_rows > 0) ? $q_local_api->fetch_assoc() : null;
+
+                $con_ventas = getExternalDbConnection('ventas');
+                if ($con_ventas) {
+                    if ($local_api) {
+                        $meta_token = $local_api['meta_token'];
+                        $meta_telefono_id = $local_api['meta_telefono_id'];
+                        $num_tel = $local_api['numero_telefono'];
+
+                        $check = mysqli_query($con_ventas, "SELECT id FROM config_api_wsap WHERE id_sede = '$legacy_id'");
+                        if (mysqli_num_rows($check) > 0) {
+                            $stmt_ventas = $con_ventas->prepare("UPDATE config_api_wsap SET token = ?, instance_id = ?, phone_number = ?, activo = ? WHERE id_sede = ?");
+                            if ($stmt_ventas) {
+                                $stmt_ventas->bind_param("sssii", $meta_token, $meta_telefono_id, $num_tel, $activo_val, $legacy_id);
+                                $stmt_ventas->execute();
+                                $stmt_ventas->close();
+                            }
+                        } else {
+                            $default_api_url = 'https://api.starficloud.com/api_starfi_wsap/api_enviar_plantilla_meta.php';
+                            $stmt_ventas = $con_ventas->prepare("INSERT INTO config_api_wsap (id_sede, api_url, token, instance_id, phone_number, activo) VALUES (?, ?, ?, ?, ?, ?)");
+                            if ($stmt_ventas) {
+                                $stmt_ventas->bind_param("issssi", $legacy_id, $default_api_url, $meta_token, $meta_telefono_id, $num_tel, $activo_val);
+                                $stmt_ventas->execute();
+                                $stmt_ventas->close();
+                            }
+                        }
+                    } else {
+                        $stmt_ventas = $con_ventas->prepare("UPDATE config_api_wsap SET activo = ? WHERE id_sede = ?");
+                        if ($stmt_ventas) {
+                            $stmt_ventas->bind_param("ii", $activo_val, $legacy_id);
+                            $stmt_ventas->execute();
+                            $stmt_ventas->close();
+                        }
+                    }
+                    mysqli_close($con_ventas);
+                }
+                
                 echo json_encode(['status' => 'success', 'message' => 'Sede actualizada correctamente.']);
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Error al actualizar la sede.']);
@@ -132,6 +262,31 @@ switch ($action) {
             $stmt->bind_param("isssssiss", $id_sede, $descripcion, $telefono, $telefono_meta, $token_meta, $id_negocio, $limite_solicitudes, $observaciones, $estado);
             
             if ($stmt->execute()) {
+                // Sincronizar con starfi_ventas.config_api_wsap
+                $legacy_id = ($id_sede == 23) ? 23 : ($id_sede - 2);
+                $activo_val = ($estado === 'ACTIVO') ? 1 : 0;
+                $con_ventas = getExternalDbConnection('ventas');
+                if ($con_ventas) {
+                    $check = mysqli_query($con_ventas, "SELECT id FROM config_api_wsap WHERE id_sede = '$legacy_id'");
+                    if (mysqli_num_rows($check) > 0) {
+                        $stmt_sync = $con_ventas->prepare("UPDATE config_api_wsap SET token = ?, instance_id = ?, phone_number = ?, activo = ? WHERE id_sede = ?");
+                        if ($stmt_sync) {
+                            $stmt_sync->bind_param("sssii", $token_meta, $telefono_meta, $telefono, $activo_val, $legacy_id);
+                            $stmt_sync->execute();
+                            $stmt_sync->close();
+                        }
+                    } else {
+                        $default_api_url = 'https://api.starficloud.com/api_starfi_wsap/api_enviar_plantilla_meta.php';
+                        $stmt_sync = $con_ventas->prepare("INSERT INTO config_api_wsap (id_sede, api_url, token, instance_id, phone_number, activo) VALUES (?, ?, ?, ?, ?, ?)");
+                        if ($stmt_sync) {
+                            $stmt_sync->bind_param("issssi", $legacy_id, $default_api_url, $token_meta, $telefono_meta, $telefono, $activo_val);
+                            $stmt_sync->execute();
+                            $stmt_sync->close();
+                        }
+                    }
+                    mysqli_close($con_ventas);
+                }
+
                 echo json_encode(['status' => 'success', 'message' => 'API WhatsApp registrada.']);
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Error al registrar API.']);
@@ -141,6 +296,31 @@ switch ($action) {
             $stmt->bind_param("isssssissi", $id_sede, $descripcion, $telefono, $telefono_meta, $token_meta, $id_negocio, $limite_solicitudes, $observaciones, $estado, $id_api);
             
             if ($stmt->execute()) {
+                // Sincronizar con starfi_ventas.config_api_wsap
+                $legacy_id = ($id_sede == 23) ? 23 : ($id_sede - 2);
+                $activo_val = ($estado === 'ACTIVO') ? 1 : 0;
+                $con_ventas = getExternalDbConnection('ventas');
+                if ($con_ventas) {
+                    $check = mysqli_query($con_ventas, "SELECT id FROM config_api_wsap WHERE id_sede = '$legacy_id'");
+                    if (mysqli_num_rows($check) > 0) {
+                        $stmt_sync = $con_ventas->prepare("UPDATE config_api_wsap SET token = ?, instance_id = ?, phone_number = ?, activo = ? WHERE id_sede = ?");
+                        if ($stmt_sync) {
+                            $stmt_sync->bind_param("sssii", $token_meta, $telefono_meta, $telefono, $activo_val, $legacy_id);
+                            $stmt_sync->execute();
+                            $stmt_sync->close();
+                        }
+                    } else {
+                        $default_api_url = 'https://api.starficloud.com/api_starfi_wsap/api_enviar_plantilla_meta.php';
+                        $stmt_sync = $con_ventas->prepare("INSERT INTO config_api_wsap (id_sede, api_url, token, instance_id, phone_number, activo) VALUES (?, ?, ?, ?, ?, ?)");
+                        if ($stmt_sync) {
+                            $stmt_sync->bind_param("issssi", $legacy_id, $default_api_url, $token_meta, $telefono_meta, $telefono, $activo_val);
+                            $stmt_sync->execute();
+                            $stmt_sync->close();
+                        }
+                    }
+                    mysqli_close($con_ventas);
+                }
+
                 echo json_encode(['status' => 'success', 'message' => 'API WhatsApp actualizada.']);
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Error al actualizar API.']);
@@ -307,6 +487,101 @@ switch ($action) {
                 'token' => '',
                 'estado' => 1
             ]]);
+        }
+        break;
+
+    case 'run_diagnostico':
+        $diagnostico = [];
+        
+        // 1. Verificar conexión a BD
+        if ($con && !$con->connect_error) {
+            $diagnostico['database'] = ['status' => 'ok', 'message' => 'Conexión a la base de datos exitosa.'];
+            
+            // 2. Verificar tablas
+            $tablas = ['empresas', 'sedes', 'lineas_whatsapp', 'usuarios_agentes', 'clientes_contactos', 'conversaciones', 'mensajes_y_eventos', 'notificacion_enviada'];
+            $tablas_status = [];
+            foreach ($tablas as $tabla) {
+                $check = $con->query("SHOW TABLES LIKE '$tabla'");
+                if ($check && $check->num_rows > 0) {
+                    $tablas_status[$tabla] = true;
+                } else {
+                    $tablas_status[$tabla] = false;
+                }
+            }
+            $diagnostico['tables'] = ['status' => 'ok', 'data' => $tablas_status];
+            
+            // 3. Verificar si hay líneas activas
+            $q_lineas = $con->query("SELECT COUNT(*) as total FROM lineas_whatsapp WHERE estado = 'ACTIVO'");
+            $total_lineas = $q_lineas ? $q_lineas->fetch_assoc()['total'] : 0;
+            $diagnostico['lineas_activas'] = [
+                'status' => $total_lineas > 0 ? 'ok' : 'warning',
+                'message' => $total_lineas > 0 ? "$total_lineas línea(s) de WhatsApp activas en el sistema." : "No hay líneas de WhatsApp activas en el sistema. Los envíos fallarán."
+            ];
+        } else {
+            $diagnostico['database'] = ['status' => 'error', 'message' => 'Fallo en la conexión a la base de datos.'];
+        }
+        
+        // 4. Verificar archivos de controlador y configuración
+        $archivos = [
+            '../../config/database.php' => 'Configuración de base de datos',
+            '../../api_notificaciones.php' => 'API de Notificaciones',
+            '../../webhook.php' => 'Webhook de recepción de mensajes',
+            '../../simulador_whatsapp.php' => 'Simulador de entrada de WhatsApp'
+        ];
+        $archivos_status = [];
+        foreach ($archivos as $ruta => $nombre) {
+            $ruta_real = __DIR__ . '/' . $ruta;
+            $archivos_status[$nombre] = file_exists($ruta_real);
+        }
+        $diagnostico['files'] = ['status' => 'ok', 'data' => $archivos_status];
+        
+        echo json_encode(['status' => 'success', 'data' => $diagnostico]);
+        break;
+
+    case 'run_simulacion_entrante':
+        $url = 'http://localhost/starfi_crm/simulador_whatsapp.php';
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        $res = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($http_code == 200) {
+            echo json_encode(['status' => 'success', 'message' => 'Simulación de mensaje entrante ejecutada correctamente. Revisa la bandeja.']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error al ejecutar simulador (HTTP ' . $http_code . ').']);
+        }
+        break;
+
+    case 'run_envio_transaccional':
+        $url = 'http://localhost/starfi_crm/api_notificaciones.php';
+        $post_fields = [
+            'telefono' => $_POST['telefono'] ?? '',
+            'nombre_cliente' => $_POST['nombre_cliente'] ?? '',
+            'monto_total' => $_POST['monto_total'] ?? '',
+            'asesor_ventas' => $_POST['asesor_ventas'] ?? '',
+            'correlativo' => $_POST['correlativo'] ?? '',
+            'nombre_empresa' => $_POST['nombre_empresa'] ?? '',
+            'telefono_asesor' => $_POST['telefono_asesor'] ?? ''
+        ];
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_fields));
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($http_code == 200) {
+            $res_data = json_decode($response, true);
+            if (isset($res_data['status_envio']) && $res_data['status_envio'] === '[EXITOSO]') {
+                echo json_encode(['status' => 'success', 'message' => 'Notificación de prueba enviada con éxito.', 'details' => $res_data]);
+            } else {
+                $error_msg = isset($res_data['meta_response']['error']['message']) ? $res_data['meta_response']['error']['message'] : 'Error en la API de Meta.';
+                echo json_encode(['status' => 'error', 'message' => 'No se pudo enviar la notificación: ' . $error_msg, 'details' => $res_data]);
+            }
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error de conexión con la API de notificaciones (HTTP ' . $http_code . ').']);
         }
         break;
 
